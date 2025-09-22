@@ -1,3 +1,4 @@
+import React from 'react';
 import { CheckCircle, AlertTriangle, RefreshCw, Edit3, FileText } from 'lucide-react';
 
 interface DiagnosisResultProps {
