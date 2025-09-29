@@ -14,7 +14,7 @@ interface DiagnosisResultProps {
 export default function DiagnosisResult({ 
   diagnosis, 
   confidence, 
-  onValidate, 
+  onValidate,  
   onRetry, 
   onCorrect, 
   showCorrectOption,

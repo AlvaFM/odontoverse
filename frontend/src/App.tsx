@@ -6,47 +6,40 @@ import DiagnosisResult from './components/DiagnosisResult';
 
 type AppState = 'idle' | 'uploading' | 'analyzing' | 'diagnosis' | 'validated' | 'correcting';
 
-// Simulación de diagnósticos de IA
-const generateMockDiagnosis = (attempt: number) => {
-  const diagnoses = [
-    {
-      text: "Se observa una caries dental en el premolar superior derecho (diente 14). La lesión presenta una profundidad moderada que ha penetrado el esmalte y está afectando la dentina. Se recomienda tratamiento con obturación dental y evaluación de posible tratamiento de conducto si hay compromiso pulpar.",
-      confidence: 75
-    },
-    {
-      text: "Radiografía muestra periodontitis apical en el molar inferior izquierdo (diente 36). Se evidencia pérdida ósea periapical y ensanchamiento del espacio del ligamento periodontal. El diente requiere tratamiento endodóntico urgente o extracción según evaluación clínica.",
-      confidence: 68
-    },
-    {
-      text: "Se identifica fractura radicular en el incisivo central superior (diente 11). La línea de fractura es visible en el tercio medio de la raíz. Se recomienda evaluación inmediata para determinar viabilidad del diente y posible necesidad de extracción e implante.",
-      confidence: 82
-    }
-  ];
-  
-  return diagnoses[attempt % diagnoses.length];
-};
-
 export default function App() {
   const [appState, setAppState] = useState<AppState>('idle');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [currentDiagnosis, setCurrentDiagnosis] = useState<{text: string, confidence: number} | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
-  const handleFileUpload = (file: File) => {
+  const handleFileUpload = async (file: File) => {
     setSelectedFile(file);
     setAppState('uploading');
-    
-    // Simular subida de archivo
-    setTimeout(() => {
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
       setAppState('analyzing');
-      
-      // Simular análisis de IA
-      setTimeout(() => {
-        const diagnosis = generateMockDiagnosis(retryCount);
-        setCurrentDiagnosis(diagnosis);
-        setAppState('diagnosis');
-      }, 3000);
-    }, 1000);
+      const response = await fetch('http://127.0.0.1:8000/predict/', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) throw new Error('Error al procesar la imagen');
+
+      const data = await response.json();
+      setCurrentDiagnosis({
+        text: data.diagnosis,
+        confidence: Math.round(data.confidence * 100) // convertir a porcentaje
+      });
+      setAppState('diagnosis');
+    } catch (error) {
+      console.error(error);
+      alert('Ocurrió un error al procesar la imagen.');
+      setAppState('idle');
+      setSelectedFile(null);
+    }
   };
 
   const handleRemoveFile = () => {
@@ -62,14 +55,9 @@ export default function App() {
   };
 
   const handleRetry = () => {
+    if (!selectedFile) return;
     setRetryCount(prev => prev + 1);
-    setAppState('analyzing');
-    
-    setTimeout(() => {
-      const diagnosis = generateMockDiagnosis(retryCount + 1);
-      setCurrentDiagnosis(diagnosis);
-      setAppState('diagnosis');
-    }, 3000);
+    handleFileUpload(selectedFile); // volver a enviar la misma imagen al backend
   };
 
   const handleCorrect = () => {
@@ -97,10 +85,10 @@ export default function App() {
             isUploading={appState === 'uploading'}
           />
         );
-      
+
       case 'analyzing':
         return <Analyzing />;
-      
+
       case 'diagnosis':
         return currentDiagnosis ? (
           <DiagnosisResult
@@ -113,7 +101,7 @@ export default function App() {
             retryCount={retryCount}
           />
         ) : null;
-      
+
       case 'validated':
         return (
           <div className="bg-white rounded-xl shadow-lg p-8 text-center">
@@ -134,7 +122,7 @@ export default function App() {
             </button>
           </div>
         );
-      
+
       default:
         return null;
     }
