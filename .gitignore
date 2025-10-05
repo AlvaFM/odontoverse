@@ -1,1 +1,21 @@
-backend/app/venv/
+# === Backend ===
+backend/venv/
+backend/__pycache__/
+backend/**/*.pyc
+backend/models/*.h5
+
+# === Frontend ===
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# === Sistema y configuración ===
+.DS_Store
+.env
+*.log
+__pycache__/
+*.sqlite3
+
+# === VSCode y entorno ===
+.vscode/
+.idea/
