@@ -1,8 +1,8 @@
 # === Backend ===
-backend/venv/
-backend/__pycache__/
-backend/**/*.pyc
-backend/models/*.h5
+backend/app/venv/
+backend/app/__pycache__/
+backend/app/**/*.pyc
+backend/app/models/*.h5
 
 # === Frontend ===
 frontend/node_modules/
