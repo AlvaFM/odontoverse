@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Agregar useEffect
 import Header from './components/Header';
 import UploadCase from './components/UploadCase';
 import Analyzing from './components/Analyzing';
@@ -12,6 +12,29 @@ export default function App() {
   const [currentDiagnosis, setCurrentDiagnosis] = useState<{text: string, confidence: number} | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
+  // Función para probar la conexión con el backend
+  const testBackendConnection = async () => {
+    try {
+      console.log("🔍 Probando conexión con backend...");
+      
+      const testResponse = await fetch('http://localhost:8000/test');
+      const testData = await testResponse.json();
+      console.log("✅ Test backend:", testData);
+      
+      const modelResponse = await fetch('http://localhost:8000/model-info');
+      const modelData = await modelResponse.json();
+      console.log("✅ Model info:", modelData);
+      
+    } catch (error) {
+      console.error("❌ Error conectando con backend:", error);
+    }
+  };
+
+  // Probar conexión al cargar el componente
+  useEffect(() => {
+    testBackendConnection();
+  }, []);
+
   const handleFileUpload = async (file: File) => {
     setSelectedFile(file);
     setAppState('uploading');
@@ -21,22 +44,31 @@ export default function App() {
 
     try {
       setAppState('analyzing');
-      const response = await fetch('http://127.0.0.1:8000/predict/', {
+      console.log("📤 Enviando imagen al backend...");
+      
+      // CORRECCIÓN: Usar localhost en lugar de 127.0.0.1
+      const response = await fetch('http://localhost:8000/predict/', {
         method: 'POST',
         body: formData
       });
 
-      if (!response.ok) throw new Error('Error al procesar la imagen');
+      console.log("📥 Respuesta del servidor:", response.status);
+
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
+      }
 
       const data = await response.json();
+      console.log("✅ Datos recibidos:", data);
+      
       setCurrentDiagnosis({
         text: data.diagnosis,
-        confidence: Math.round(data.confidence * 100) // convertir a porcentaje
+        confidence: data.confidence // Ya viene como porcentaje desde el backend
       });
       setAppState('diagnosis');
     } catch (error) {
-      console.error(error);
-      alert('Ocurrió un error al procesar la imagen.');
+      console.error('❌ Error al procesar la imagen:', error);
+      alert('Ocurrió un error al procesar la imagen. Verifica que el backend esté ejecutándose.');
       setAppState('idle');
       setSelectedFile(null);
     }
@@ -57,7 +89,7 @@ export default function App() {
   const handleRetry = () => {
     if (!selectedFile) return;
     setRetryCount(prev => prev + 1);
-    handleFileUpload(selectedFile); // volver a enviar la misma imagen al backend
+    handleFileUpload(selectedFile);
   };
 
   const handleCorrect = () => {

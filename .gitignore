@@ -49,3 +49,8 @@ yarn-error.log*
 # Otros archivos de sistema o temporales
 *.swp
 *.swo
+
+# Modelos de ML (son muy grandes)
+backend/app/model/
+*.keras
+*.h5
