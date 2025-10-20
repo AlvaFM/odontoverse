@@ -8,7 +8,12 @@ interface UploadCaseProps {
   isUploading: boolean;
 }
 
-export default function UploadCase({ onUpload, selectedFile, onRemoveFile, isUploading }: UploadCaseProps) {
+export default function UploadCase({
+  onUpload,
+  selectedFile,
+  onRemoveFile,
+  isUploading,
+}: UploadCaseProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,7 +50,9 @@ export default function UploadCase({ onUpload, selectedFile, onRemoveFile, isUpl
             <div className="flex items-center gap-3">
               <FileImage className="h-5 w-5 text-blue-600" />
               <span className="text-sm font-medium text-blue-900">{selectedFile.name}</span>
-              <span className="text-xs text-blue-700">({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)</span>
+              <span className="text-xs text-blue-700">
+                ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+              </span>
             </div>
             {!isUploading && (
               <button
@@ -76,9 +83,7 @@ export default function UploadCase({ onUpload, selectedFile, onRemoveFile, isUpl
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             Arrastra y suelta tu radiografía aquí
           </h3>
-          <p className="text-gray-600 mb-4">
-            O haz clic para seleccionar un archivo
-          </p>
+          <p className="text-gray-600 mb-4">O haz clic para seleccionar un archivo</p>
           <p className="text-sm text-gray-500">
             Formatos soportados: JPEG, PNG, WebP (máx. 10MB)
           </p>
