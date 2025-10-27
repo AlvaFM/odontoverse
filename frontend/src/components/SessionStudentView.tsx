@@ -11,7 +11,7 @@ interface Diente {
   nombre: string;
 }
 
-// Dientes superiores e inferiores con FDI y nombre abreviado
+// Dientes superiores e inferiores
 const dientesSuperiores: Diente[] = [
   { fdi: "18", nombre: "Tercer Molar" }, { fdi: "17", nombre: "Segundo Molar" },
   { fdi: "16", nombre: "Primer Molar" }, { fdi: "15", nombre: "Segundo Premolar" },
@@ -51,29 +51,29 @@ export default function SessionStudentView({ codigo, radiografiaURL, onVolver }:
   };
 
   return (
-    <div className="bg-white shadow-xl rounded-2xl p-6 w-full max-w-3xl mx-auto text-center">
-      <h2 className="text-2xl font-bold mb-4">Sesión {codigo}</h2>
+    <div className="bg-[#D6E6F2] border border-[#E0E0E0] shadow-xl rounded-2xl p-6 w-full max-w-3xl mx-auto text-center">
+      <h2 className="text-2xl font-bold mb-4 text-[#034C7D]">Sesión {codigo}</h2>
 
       {radiografiaURL && (
         <div className="mb-6">
           <img
             src={radiografiaURL}
             alt="Radiografía"
-            className="max-h-64 rounded-lg border border-gray-200 mx-auto shadow-md"
+            className="max-h-64 rounded-lg border border-[#E0E0E0] mx-auto shadow-md"
           />
         </div>
       )}
 
-      <p className="text-gray-700 mb-4 font-medium">Selecciona el diente afectado:</p>
+      <p className="text-[#034C7D] mb-4 font-medium">Selecciona el diente afectado:</p>
 
       {/* Dientes superiores */}
-      <div className="flex justify-center mb-2 gap-2 flex-wrap" style={{ transform: "translateY(0)" }}>
+      <div className="flex justify-center mb-2 gap-2 flex-wrap">
         {dientesSuperiores.map((diente, i) => (
           <button
             key={diente.fdi}
             onClick={() => setDienteSeleccionado(diente)}
-            className={`w-16 h-20 rounded-t-2xl border border-gray-300 flex flex-col justify-center items-center text-sm shadow-md transition ${
-              dienteSeleccionado?.fdi === diente.fdi ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200"
+            className={`w-16 h-20 rounded-t-2xl border border-[#E0E0E0] flex flex-col justify-center items-center text-sm shadow-md transition ${
+              dienteSeleccionado?.fdi === diente.fdi ? "bg-[#76C7F3] text-white" : "bg-white hover:bg-[#BDE0F7]"
             }`}
             style={{ transform: `translateY(${Math.sin(i / 16 * Math.PI) * -5}px)` }}
           >
@@ -89,8 +89,8 @@ export default function SessionStudentView({ codigo, radiografiaURL, onVolver }:
           <button
             key={diente.fdi}
             onClick={() => setDienteSeleccionado(diente)}
-            className={`w-16 h-20 rounded-b-2xl border border-gray-300 flex flex-col justify-center items-center text-sm shadow-md transition ${
-              dienteSeleccionado?.fdi === diente.fdi ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200"
+            className={`w-16 h-20 rounded-b-2xl border border-[#E0E0E0] flex flex-col justify-center items-center text-sm shadow-md transition ${
+              dienteSeleccionado?.fdi === diente.fdi ? "bg-[#76C7F3] text-white" : "bg-white hover:bg-[#BDE0F7]"
             }`}
             style={{ transform: `translateY(${Math.sin(i / 16 * Math.PI) * 5}px)` }}
           >
@@ -100,17 +100,17 @@ export default function SessionStudentView({ codigo, radiografiaURL, onVolver }:
         ))}
       </div>
 
-      {/* Selección de diagnóstico */}
+      {/* Selección de análisis */}
       {dienteSeleccionado && (
         <>
-          <p className="text-gray-700 mb-2 font-medium">Selecciona el diagnóstico:</p>
+          <p className="text-[#034C7D] mb-2 font-medium">Selecciona el análisis:</p>
           <div className="flex justify-center gap-3 mb-6 flex-wrap">
             {diagnosticos.map((d) => (
               <button
                 key={d}
                 onClick={() => setDiagnosticoSeleccionado(d)}
                 className={`px-5 py-2 rounded-full font-semibold shadow-md transition ${
-                  diagnosticoSeleccionado === d ? "bg-green-600 text-white" : "bg-gray-100 hover:bg-gray-200"
+                  diagnosticoSeleccionado === d ? "bg-[#76C7F3] text-white" : "bg-white hover:bg-[#BDE0F7]"
                 }`}
               >
                 {d}
@@ -122,12 +122,15 @@ export default function SessionStudentView({ codigo, radiografiaURL, onVolver }:
 
       <button
         onClick={enviarDiagnostico}
-        className="bg-blue-600 text-white px-6 py-3 rounded-full w-full mb-3 font-semibold shadow-lg hover:bg-blue-700 transition"
+        className="bg-[#76C7F3] hover:bg-[#5AB0E1] text-white px-6 py-3 rounded-full w-full mb-3 font-semibold shadow-lg transition"
       >
-        Enviar Diagnóstico
+        Enviar análisis
       </button>
 
-      <button onClick={onVolver} className="text-gray-600 text-sm underline">
+      <button
+        onClick={onVolver}
+        className="text-[#034C7D] text-sm underline"
+      >
         Salir
       </button>
     </div>

@@ -14,19 +14,28 @@ export default function SessionJoiner({ onSesionUnida, onVolver }: Props) {
   };
 
   return (
-    <div className="bg-white shadow-md rounded-xl p-6 w-96 text-center">
-      <h2 className="text-2xl font-semibold mb-4">Unirse a Sesión</h2>
+    <div className="bg-[#D6E6F2] border border-[#E0E0E0] shadow-md rounded-2xl p-6 w-96 text-center">
+      <h2 className="text-2xl font-semibold mb-4 text-[#034C7D]">Unirse a sesión</h2>
+
       <input
         type="text"
         placeholder="Código de sesión"
         value={codigo}
         onChange={(e) => setCodigo(e.target.value)}
-        className="border rounded-lg p-2 w-full mb-3"
+        className="border border-[#E0E0E0] rounded-lg p-2 w-full mb-3 bg-white text-gray-800"
       />
-      <button onClick={unirse} className="bg-green-600 text-white px-4 py-2 rounded-lg w-full mb-2">
+
+      <button
+        onClick={unirse}
+        className="bg-[#76C7F3] hover:bg-[#5AB0E1] text-white px-4 py-2 rounded-lg w-full mb-2"
+      >
         Unirse
       </button>
-      <button onClick={onVolver} className="text-gray-600 text-sm underline">
+
+      <button
+        onClick={onVolver}
+        className="text-[#034C7D] text-sm underline"
+      >
         Volver
       </button>
     </div>
