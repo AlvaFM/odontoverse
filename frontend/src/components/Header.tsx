@@ -1,18 +1,23 @@
-import LogoImg from "../assets/img/odontoai.png"; // tu logo
+import LogoImg from "../assets/img/odontoai.png";
 
-export default function Header() {
+interface HeaderProps {
+  logoSize?: number; 
+}
+
+export default function Header({ logoSize = 100 }: HeaderProps) { 
   return (
-    <header className="bg-gray-100 shadow-md w-full h-24 flex items-center px-6">
-      {/* Logo */}
-      <div className="flex items-center">
-        <img src={LogoImg} alt="OdontoAI" className="h-20 w-auto object-contain" /> 
-        <span className="ml-4 text-gray-800 font-bold text-xl"></span>
-      </div>
-
-      {/* Navegación o botones a la derecha */}
-      <nav className="ml-auto flex items-center gap-4">
-        {/* Botones opcionales */}
-      </nav>
-    </header>
+    <>
+      {/* HEADER MINIMALISTA */}
+      <header className="w-full bg-[#E3F2F9] flex justify-center items-center py-6">
+        <div className="flex flex-col items-center">
+          <img
+            src={LogoImg}
+            alt="OdontoAI"
+            style={{ height: logoSize, width: "auto", objectFit: "contain" }}
+            className="transition-transform duration-300 hover:scale-105"
+          />
+        </div>
+      </header>
+    </>
   );
 }

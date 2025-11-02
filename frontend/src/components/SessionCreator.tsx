@@ -1,5 +1,7 @@
 import { useState } from "react";
 import UploadCase from "./UploadCase";
+import { showCustomToast } from "./CustomToast";
+import DienteIcon from "../assets/img/dientelupa.png";
 
 interface Props {
   onSesionCreada: (codigo: string, file?: File | null) => void;
@@ -21,11 +23,12 @@ export default function SessionCreator({ onSesionCreada, onVolver }: Props) {
 
   const crearSesion = () => {
     if (!caso || !radiografia) {
-      alert("Debes ingresar el nombre del caso y subir una radiografía.");
+      showCustomToast("Debes ingresar el nombre del caso y subir una radiografía.", DienteIcon);
       return;
     }
     const codigoFinal = codigo || generarCodigo();
     onSesionCreada(codigoFinal, radiografia);
+    showCustomToast("Sesión creada correctamente", DienteIcon);
   };
 
   const handleUpload = (file: File) => {
@@ -33,65 +36,76 @@ export default function SessionCreator({ onSesionCreada, onVolver }: Props) {
     setTimeout(() => {
       setRadiografia(file);
       setSubiendo(false);
+      showCustomToast("Radiografía cargada", DienteIcon);
     }, 500); // simulación
   };
 
   const handleRemoveFile = () => {
     setRadiografia(null);
+    showCustomToast("Radiografía eliminada", DienteIcon);
   };
 
   return (
-    <div className="bg-[#D6E6F2] border border-[#E0E0E0] shadow-md rounded-2xl p-6 w-[26rem] text-center">
-      <h2 className="text-2xl font-semibold mb-4 text-[#034C7D]">Crear sesión</h2>
+    <div className="bg-white/80 backdrop-blur-sm rounded-[40px] shadow-[0_8px_30px_rgba(0,0,0,0.1)]
+                    p-8 sm:p-10 lg:p-12
+                    max-w-full sm:max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl
+                    mx-auto flex flex-col gap-6 border border-[#E0EDF5] transition-all duration-500">
 
-      <div className="space-y-3 text-left">
-        <label className="text-sm font-medium text-[#034C7D]">Nombre del caso</label>
-        <input
-          type="text"
-          placeholder="Ej: Caries Molar Superior"
-          value={caso}
-          onChange={(e) => setCaso(e.target.value)}
-          className="border border-[#E0E0E0] rounded-lg p-2 w-full mb-3 bg-white text-gray-800"
-        />
+      <h2 className="text-3xl sm:text-4xl font-extrabold text-center text-[#034C7D]">
+        Crear sesión
+      </h2>
 
-        <label className="text-sm font-medium text-[#034C7D]">Tiempo (minutos)</label>
-        <input
-          type="number"
-          placeholder="Duración"
-          value={tiempo}
-          onChange={(e) => setTiempo(parseInt(e.target.value))}
-          className="border border-[#E0E0E0] rounded-lg p-2 w-full mb-3 bg-white text-gray-800"
-        />
+      <div className="flex flex-col gap-6 md:flex-row md:gap-8">
+        <div className="flex-1 flex flex-col gap-4">
+          <label className="text-sm font-semibold text-[#034C7D]">Nombre del caso</label>
+          <input
+            type="text"
+            placeholder="Ej: Caries Molar Superior"
+            value={caso}
+            onChange={(e) => setCaso(e.target.value)}
+            className="border border-[#E0E0E0] rounded-xl p-3 bg-[#F0F7FB] text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#76C7F3] transition"
+          />
+        </div>
+
+        <div className="flex-1 flex flex-col gap-4">
+          <label className="text-sm font-semibold text-[#034C7D]">Tiempo (minutos)</label>
+          <input
+            type="number"
+            placeholder="Duración"
+            value={tiempo}
+            onChange={(e) => setTiempo(parseInt(e.target.value))}
+            className="border border-[#E0E0E0] rounded-xl p-3 bg-[#F0F7FB] text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#76C7F3] transition"
+          />
+        </div>
       </div>
 
-      <div className="mt-4">
-        <UploadCase
-          onUpload={handleUpload}
-          selectedFile={radiografia}
-          onRemoveFile={handleRemoveFile}
-          isUploading={subiendo}
-        />
-      </div>
+      <UploadCase
+        onUpload={handleUpload}
+        selectedFile={radiografia}
+        onRemoveFile={handleRemoveFile}
+        isUploading={subiendo}
+      />
 
       {codigo && (
-        <p className="mt-3 text-sm text-[#034C7D]">
+        <p className="mt-2 text-center text-sm text-[#034C7D]">
           Código generado: <b>{codigo}</b>
         </p>
       )}
 
-      <button
-        onClick={crearSesion}
-        className="bg-[#76C7F3] hover:bg-[#5AB0E1] text-white px-4 py-2 rounded-lg w-full mt-4"
-      >
-        Crear sesión
-      </button>
-
-      <button
-        onClick={onVolver}
-        className="text-[#034C7D] text-sm underline mt-3"
-      >
-        Volver
-      </button>
+      <div className="flex flex-col sm:flex-row gap-4 mt-4">
+        <button
+          onClick={crearSesion}
+          className="flex-1 bg-[#76C7F3] hover:bg-[#5AB0E1] text-white font-semibold px-6 py-4 rounded-3xl shadow-[6px_6px_12px_rgba(0,0,0,0.15),-6px_-6px_12px_rgba(255,255,255,0.7)] transition-transform transform hover:-translate-y-1 hover:scale-105"
+        >
+          Crear sesión
+        </button>
+        <button
+          onClick={onVolver}
+          className="flex-1 bg-[#F0F7FB] hover:bg-[#E0F0FA] text-[#034C7D] font-semibold px-6 py-4 rounded-3xl border border-[#D0D0D0] transition-transform transform hover:-translate-y-1 hover:scale-105"
+        >
+          Volver
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,44 +1,48 @@
-import { toast, Toaster } from "react-hot-toast";
-
-// Importa tus íconos específicos
+import React from "react";
+import { toast, Toaster, Toast } from "react-hot-toast";
 import DienteEspejo from "../assets/img/dienteespejo.png";
 import DienteLike from "../assets/img/dientelike.png";
 import DienteDuda from "../assets/img/dienteduda.png";
 
-export const Notify: React.FC = () => {
+interface CustomToastProps {
+  message: string;
+  imageSrc: string;
+}
+
+const CustomToast: React.FC<CustomToastProps> = ({ message, imageSrc }) => {
   return (
-    <Toaster
-      position="top-center"
-      toastOptions={{
-        duration: 3500,
-        style: {
-          background: "#D6E6F2", // celeste pastel
-          color: "#034C7D",      // gris oscuro
-          border: "1px solid #B0CDE8",
-          borderRadius: "16px",
-          padding: "14px 20px",
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-          boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-        },
-      }}
-    />
+    <div className="flex justify-center">
+      <div className="bg-[#D6E6F2] border border-[#B0CDE8] rounded-2xl p-6 flex flex-col items-center gap-4 shadow-xl w-72 sm:w-80">
+        <img src={imageSrc} alt="icon" className="h-16 w-16 object-contain" />
+        <span className="text-[#034C7D] font-semibold text-center text-sm sm:text-base">
+          {message}
+        </span>
+      </div>
+    </div>
   );
 };
 
-// Funciones de notificación global
+export const Notify: React.FC = () => (
+  <Toaster position="top-center" />
+);
+
 export const notify = {
   info: (msg: string) =>
-    toast(msg, {
-      icon: <img src={DienteEspejo} className="h-6 w-6" />,
-    }),
+    toast.custom((t: Toast) => (
+      <div className={`transform transition-all duration-300 ${t.visible ? "opacity-100 scale-100" : "opacity-0 scale-90"}`}>
+        <CustomToast message={msg} imageSrc={DienteEspejo} />
+      </div>
+    )),
   success: (msg: string) =>
-    toast.success(msg, {
-      icon: <img src={DienteLike} className="h-6 w-6" />,
-    }),
+    toast.custom((t: Toast) => (
+      <div className={`transform transition-all duration-300 ${t.visible ? "opacity-100 scale-100" : "opacity-0 scale-90"}`}>
+        <CustomToast message={msg} imageSrc={DienteLike} />
+      </div>
+    )),
   error: (msg: string) =>
-    toast.error(msg, {
-      icon: <img src={DienteDuda} className="h-6 w-6" />,
-    }),
+    toast.custom((t: Toast) => (
+      <div className={`transform transition-all duration-300 ${t.visible ? "opacity-100 scale-100" : "opacity-0 scale-90"}`}>
+        <CustomToast message={msg} imageSrc={DienteDuda} />
+      </div>
+    )),
 };
