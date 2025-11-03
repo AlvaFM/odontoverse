@@ -12,6 +12,8 @@ import DiagnosisResult from "./components/DiagnosisResult";
 import ClinicalAssistant from "./components/ClinicalAssistant";
 import TeacherMode from "./components/TeacherMode";
 import Leaderboard from "./components/Leaderboard";
+import TutorialDental from "./components/TutorialDental"; 
+
 
 
 import { showCustomToast } from "./components/CustomToast";
@@ -42,6 +44,8 @@ function App() {
   const [confidence, setConfidence] = useState<number>(0);
   const [retryCount, setRetryCount] = useState<number>(0);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
+  
 
   // Funciones de sesión
   const handleCrearSesion = (codigo: string, file?: File | null) => {
@@ -92,6 +96,7 @@ function App() {
     showCustomToast("Análisis corregido", DienteIcon);
   };
 
+  
   const handleGoToTeacherMode = () => setVista("teacher");
   const handleGoToLeaderboard = () => setVista("leaderboard");
 
@@ -251,27 +256,43 @@ function App() {
       </main>
 
       {/* BOTÓN FLOTANTE IA */}
-      <button
-        className="fixed bottom-8 right-8 bg-[#FFD166] text-[#034C7D] font-bold text-2xl sm:text-3xl px-10 py-6 rounded-full 
-                   shadow-[8px_8px_20px_rgba(0,0,0,0.15),-8px_-8px_20px_rgba(255,255,255,0.7)] 
-                   transition-transform transform hover:-translate-y-1 hover:scale-105 hover:shadow-[4px_4px_12px_rgba(0,0,0,0.2),-4px_-4px_12px_rgba(255,255,255,0.8)] z-50 flex items-center gap-2"
-        onClick={() => setIsChatOpen(true)}
-      >
-        <img src={IaIcon} alt="Asistente IA" className="w-8 h-8" />
-        Asistente IA
-      </button>
+        <button
+          className="fixed bottom-8 right-8 bg-[#FFD166] text-[#034C7D] font-bold text-2xl sm:text-3xl px-10 py-6 rounded-full 
+                    shadow-[8px_8px_20px_rgba(0,0,0,0.15),-8px_-8px_20px_rgba(255,255,255,0.7)] 
+                    transition-transform transform hover:-translate-y-1 hover:scale-105 hover:shadow-[4px_4px_12px_rgba(0,0,0,0.2),-4px_-4px_12px_rgba(255,255,255,0.8)] z-50 flex items-center gap-2"
+          onClick={() => setIsChatOpen(true)}
+        >
+          <img src={IaIcon} alt="Asistente IA" className="w-8 h-8" />
+          Asistente IA
+        </button>
 
-      {/* CHAT ASISTENTE */}
-      {isChatOpen && (
-        <div className="fixed bottom-24 right-8 z-50">
-          <ClinicalAssistant
-            diagnosis={diagnosis}
-            confidence={confidence}
-            onVolver={() => setIsChatOpen(false)}
-            onContinuar={() => setIsChatOpen(false)}
+        {/* CHAT ASISTENTE */}
+        {isChatOpen && (
+          <div className="fixed bottom-24 right-8 z-50">
+            <ClinicalAssistant
+              diagnosis={diagnosis}
+              confidence={confidence}
+              onVolver={() => setIsChatOpen(false)}
+              onContinuar={() => setIsChatOpen(false)}
+            />
+          </div>
+        )}
+
+        {/* BOTÓN FLOTANTE PARA ABRIR TUTORIAL */}
+        <button
+          className="fixed bottom-40 right-8 bg-[#FFD166] text-[#034C7D] font-bold px-6 py-3 rounded-full z-50"
+          onClick={() => setShowTutorial(true)}
+        >
+          Abrir Tutorial
+        </button>
+
+        {/* TUTORIAL */}
+        {showTutorial && (
+          <TutorialDental
+            onClose={() => setShowTutorial(false)}
           />
-        </div>
-      )}
+        )}
+
     </div>
   );
 }
