@@ -2,6 +2,10 @@ import { useState } from "react";
 import { Toaster } from "react-hot-toast";
 import { motion } from "framer-motion";
 
+import { db } from "./services/firebase";
+
+
+
 import Header from "./components/Header";
 import SessionCreator from "./components/SessionCreator";
 import SessionJoiner from "./components/SessionJoiner";
@@ -26,6 +30,8 @@ import IaIcon from "./assets/img/ia.svg";
 import DienteIcon from "./assets/img/dientelupa.png";
 
 function App() {
+console.log("Firestore conectado:", db);
+
   const [vista, setVista] = useState<
     | "inicio"
     | "crear"
