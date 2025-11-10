@@ -48,21 +48,49 @@ function App() {
   
 
   // Funciones de sesión
-  const handleCrearSesion = (codigo: string, file?: File | null) => {
+  const handleCrearSesion = async (codigo: string, file?: File | null) => {
     if (!file) {
       showCustomToast("Debes subir una radiografía", DienteIcon);
       return;
     }
+    
     setRadiografiaURL(URL.createObjectURL(file));
     setCodigoSesion(codigo);
     setVista("analizando");
 
-    setTimeout(() => {
-      setDiagnosis("Posible caries en molares superiores");
-      setConfidence(85);
+    try {
+      // Crear FormData para enviar la imagen
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // Enviar la imagen al backend
+      const response = await fetch('http://localhost:8000/predict/', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al procesar la imagen');
+      }
+
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      // Actualizar el estado con los resultados de la predicción
+      setDiagnosis(result.diagnosis);
+      setConfidence(result.confidence);
       setVista("resultado");
       showCustomToast("Análisis generado", DienteIcon);
-    }, 3000);
+    } catch (error) {
+      console.error('Error al procesar la imagen:', error);
+      showCustomToast("Error al procesar la imagen", DienteIcon);
+      setDiagnosis("Error al analizar la imagen");
+      setConfidence(0);
+      setVista("resultado");
+    }
   };
 
   const handleUnirseSesion = (codigo: string) => {
