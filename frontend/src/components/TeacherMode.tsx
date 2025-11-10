@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import TeacherSvg from "../assets/img/teacher.svg";
-import { motion } from "framer-motion";
-import { showCustomToast } from "./CustomToast"; 
+import { motion, AnimatePresence } from "framer-motion";
+import { showCustomToast } from "./CustomToast";
 
 interface Caso {
   pregunta: string;
@@ -13,9 +13,10 @@ interface Caso {
 
 interface TeacherModeProps {
   onVolver: () => void;
+  onFinalizar: () => void;
 }
 
-const TeacherMode: React.FC<TeacherModeProps> = ({ onVolver }) => {
+const TeacherMode: React.FC<TeacherModeProps> = ({ onVolver, onFinalizar }) => {
   const [caseData, setCaseData] = useState<Caso>({
     pregunta: "",
     opciones: ["", "", "", ""],
@@ -25,6 +26,7 @@ const TeacherMode: React.FC<TeacherModeProps> = ({ onVolver }) => {
   });
 
   const [casosRegistrados, setCasosRegistrados] = useState<Caso[]>([]);
+  const [finalizando, setFinalizando] = useState(false);
 
   const handleChange = (field: keyof Caso, value: string, index?: number) => {
     if (field === "opciones" && typeof index === "number") {
@@ -41,11 +43,8 @@ const TeacherMode: React.FC<TeacherModeProps> = ({ onVolver }) => {
       showCustomToast("Debes completar la pregunta y la respuesta correcta", TeacherSvg);
       return;
     }
-
     setCasosRegistrados([...casosRegistrados, caseData]);
     showCustomToast("Caso registrado correctamente", TeacherSvg);
-
-    // reset form
     setCaseData({
       pregunta: "",
       opciones: ["", "", "", ""],
@@ -55,15 +54,53 @@ const TeacherMode: React.FC<TeacherModeProps> = ({ onVolver }) => {
     });
   };
 
+  const handleFinalizar = () => {
+    if (casosRegistrados.length === 0) {
+      showCustomToast("Debes guardar al menos un caso antes de finalizar", TeacherSvg);
+      return;
+    }
+
+    setFinalizando(true);
+    setTimeout(() => {
+      onFinalizar();
+    }, 1500);
+  };
+
   return (
-    <div className="max-w-5xl w-full bg-white rounded-3xl shadow-2xl p-8 mx-4 sm:mx-auto flex flex-col gap-6">
+    <div className="max-w-5xl w-full bg-white rounded-3xl shadow-2xl p-8 mx-4 sm:mx-auto flex flex-col gap-6 relative">
+
+      <AnimatePresence>
+        {finalizando && (
+          <motion.div
+            className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center rounded-3xl"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.img
+              src={TeacherSvg}
+              className="w-40 mb-4"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", bounce: 0.5 }}
+            />
+            <motion.p
+              className="text-3xl font-bold text-[#034C7D]"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              ¡Caso finalizado!
+            </motion.p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <img src={TeacherSvg} alt="Modo Docente" className="w-32 h-32 mx-auto" />
 
       <h2 className="text-4xl font-bold text-[#034C7D] text-center mt-4">
-        Modo Docente — Crear Caso Radiográfico
+        Modo docente — Crear caso
       </h2>
 
-      {/* Formulario */}
       <div className="flex flex-col gap-4 mt-6">
         <input
           placeholder="Pregunta"
@@ -126,11 +163,10 @@ const TeacherMode: React.FC<TeacherModeProps> = ({ onVolver }) => {
           onClick={handleSave}
           className="bg-[#91D18B] hover:bg-[#75b472] text-white px-6 py-2 rounded-xl transition"
         >
-          Guardar Caso
+          Guardar caso
         </button>
       </div>
 
-      {/* Lista de casos registrados */}
       {casosRegistrados.length > 0 && (
         <div className="mt-8">
           <h3 className="text-2xl font-semibold text-[#034C7D] mb-4">Casos Registrados</h3>
@@ -150,6 +186,14 @@ const TeacherMode: React.FC<TeacherModeProps> = ({ onVolver }) => {
           </div>
         </div>
       )}
+
+      <button
+        onClick={handleFinalizar}
+        className="bg-blue-500 text-white px-6 py-2 rounded-xl"
+      >
+        Guardar y finalizar Caso
+      </button>
+
     </div>
   );
 };

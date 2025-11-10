@@ -130,6 +130,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#E8F4FA] to-[#F8FBFC] text-gray-800 font-sans flex flex-col relative transition-colors duration-700">
+      <div className="max-w-[1100px] w-full mx-auto px-4 sm:px-6 lg:px-8">
       <Header logoSize={120} />
 
       <Toaster
@@ -165,30 +166,18 @@ function App() {
               </p>
 
               {/* BOTONES ARRIBA */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 w-full mt-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-7 w-full mt-8">
                 <button
                   onClick={() => setVista("crear")}
-                  className="bg-[#A8DADC] hover:bg-[#9BD1D1] text-[#034C7D] font-bold px-8 py-6 rounded-3xl shadow-lg text-2xl transition-transform transform hover:-translate-y-1 hover:scale-105"
+                  className="flex justify-center gap-4 bg-[#A8DADC] hover:bg-[#9BD1D1] text-[#034C7D] font-bold px-8 py-6 rounded-3xl shadow-lg text-2xl transition-transform transform hover:-translate-y-1 hover:scale-105"
                 >
                   Crear sesión
                 </button>
                 <button
                   onClick={() => setVista("unirse")}
-                  className="bg-[#BFD7EA] hover:bg-[#A7C8DF] text-[#034C7D] font-bold px-8 py-6 rounded-3xl shadow-lg text-2xl transition-transform transform hover:-translate-y-1 hover:scale-105"
+                  className="flex justify-center gap-4 bg-[#BFD7EA] hover:bg-[#A7C8DF] text-[#034C7D] font-bold px-8 py-6 rounded-3xl shadow-lg text-2xl transition-transform transform hover:-translate-y-1 hover:scale-105"
                 >
                   Unirse a sesión
-                </button>
-                <button
-                  onClick={handleGoToTeacherMode}
-                  className="bg-[#C8E6C9] hover:bg-[#B5DCB8] text-[#034C7D] font-bold px-8 py-6 rounded-3xl shadow-lg text-2xl transition-transform transform hover:-translate-y-1 hover:scale-105"
-                >
-                  Modo Docente
-                </button>
-                <button
-                  onClick={handleGoToLeaderboard}
-                  className="bg-[#FFF3B0] hover:bg-[#FFEA8A] text-[#034C7D] font-bold px-8 py-6 rounded-3xl shadow-lg text-2xl transition-transform transform hover:-translate-y-1 hover:scale-105"
-                >
-                  Ranking
                 </button>
 
               </div>
@@ -196,11 +185,11 @@ function App() {
               {/* CARDS ABAJO */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mt-12 w-full">
                 {[{
-                  icon: CameraIcon, title: "Analiza", text: "Sube radiografías y obtén un diagnóstico asistido por IA."
+                  icon: CameraIcon, title: "Analiza", text: "Sube radiografías y obtén un análisis asistido por IA."
                 },{
                   icon: GroupIcon, title: "Colabora", text: "Crea sesiones y comparte casos con estudiantes o colegas."
                 },{
-                  icon: LearnIcon, title: "Aprende", text: "Visualiza métricas y mejora la precisión diagnóstica."
+                  icon: LearnIcon, title: "Aprende", text: "Visualiza métricas y mejora la precisión de análisis dentales."
                 }].map((card, idx) => (
                   <motion.div
                     key={idx}
@@ -234,14 +223,6 @@ function App() {
             />
           )}
 
-          {/* === DASHBOARD DOCENTE === */}
-          {vista === "dashboard" && (
-            <SessionDashboard
-              codigo={codigoSesion}
-              onVolver={() => setVista("inicio")}
-            />
-          )}
-
           {/* === VISTA ALUMNO === */}
           {vista === "alumno" && radiografiaURL && (
             <SessionStudentView
@@ -271,9 +252,20 @@ function App() {
           )}
 
           {/* === MODO DOCENTE === */}
-          {vista === "teacher" && (
-            <TeacherMode onVolver={() => setVista("inicio")} />
-          )}
+        {vista === "teacher" && (
+          <TeacherMode
+            onVolver={() => setVista("inicio")}
+            onFinalizar={() => setVista("dashboard")}
+          />
+        )}
+
+        {vista === "dashboard" && (
+          <SessionDashboard
+            codigo={codigoSesion}
+            onVolver={() => setVista("inicio")}
+          />
+        )}
+
 
         {/* === LEADERBOARD === */}
         {vista === "leaderboard" && (
@@ -306,7 +298,7 @@ function App() {
           </div>
         )}
 
-        {/* BOTÓN FLOTANTE PARA ABRIR TUTORIAL */}
+      {/* BOTÓN FLOTANTE PARA ABRIR TUTORIAL */}
         <button
           className="fixed bottom-40 right-8 bg-[#FFD166] text-[#034C7D] font-bold px-6 py-3 rounded-full z-50"
           onClick={() => setShowTutorial(true)}
@@ -317,10 +309,11 @@ function App() {
         {/* TUTORIAL */}
         {showTutorial && (
           <TutorialDental
-            onClose={() => setShowTutorial(false)}
+            onClose={()         => setShowTutorial(false)}
           />
         )}
 
+    </div>
     </div>
   );
 }

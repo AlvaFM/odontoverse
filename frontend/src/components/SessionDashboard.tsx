@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import Leaderboard from "./Leaderboard";
 
 interface Props {
   codigo: string;
@@ -12,8 +13,8 @@ interface Estudiante {
 
 export default function SessionDashboard({ codigo, onVolver }: Props) {
   const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
+  const [mostrarLeaderboard, setMostrarLeaderboard] = useState(false);
 
-  // Simulación: cada 5 seg se agrega un estudiante o cambia su estado
   useEffect(() => {
     const intervalo = setInterval(() => {
       setEstudiantes((prev) => {
@@ -29,6 +30,10 @@ export default function SessionDashboard({ codigo, onVolver }: Props) {
     }, 5000);
     return () => clearInterval(intervalo);
   }, []);
+
+  if (mostrarLeaderboard) {
+    return <Leaderboard onVolver={onVolver} />;
+  }
 
   return (
     <div
@@ -71,7 +76,7 @@ export default function SessionDashboard({ codigo, onVolver }: Props) {
       </div>
 
       <button
-        onClick={onVolver}
+        onClick={() => setMostrarLeaderboard(true)}
         className="mt-6 bg-[#F7C948] hover:bg-[#E1C650] text-white font-semibold px-6 py-4 rounded-3xl shadow-[6px_6px_12px_rgba(0,0,0,0.15),-6px_-6px_12px_rgba(255,255,255,0.7)] transition-transform transform hover:-translate-y-1 hover:scale-105"
       >
         Finalizar sesión

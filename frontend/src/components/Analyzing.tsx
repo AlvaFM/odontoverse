@@ -61,7 +61,7 @@ export default function Analyzing({ imageData }: AnalyzingProps) {
           Analizando radiografía...
         </h2>
         <p className="text-gray-600 text-center text-sm sm:text-base max-w-xs">
-          Nuestra IA está procesando la imagen y generando el diagnóstico.
+          Nuestra IA está procesando la imagen y generando el análisis.
         </p>
 
         <div className="w-full bg-[#E0E0E0] rounded-full h-3 overflow-hidden">

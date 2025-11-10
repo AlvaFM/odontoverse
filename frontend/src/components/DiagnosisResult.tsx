@@ -86,7 +86,7 @@ export default function DiagnosisResult({
             className="flex-1 min-w-[150px] bg-[#91D18B] hover:bg-[#75b472] text-white font-semibold px-6 py-4 rounded-full flex items-center justify-center gap-2 shadow-[6px_6px_12px_rgba(0,0,0,0.15),-6px_-6px_12px_rgba(255,255,255,0.7)] transition-transform transform hover:-translate-y-1 hover:scale-105"
           >
             <GraduationCap className="h-6 w-6" />
-            Modo Docente
+            Modo docente
           </button>
         )}
       </div>
