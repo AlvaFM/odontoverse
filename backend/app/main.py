@@ -1,7 +1,7 @@
 # main.py
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from model import predict_image, model
+from .model import predict_image, model
 from PIL import Image
 import io
 

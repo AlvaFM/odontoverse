@@ -13,7 +13,7 @@ export default function Header({ logoSize = 100 }: HeaderProps) {
           <img
             src={LogoImg}
             alt="OdontoAI"
-            style={{ height: logoSize, width: "auto", objectFit: "contain" }}
+            style={{ height: `${logoSize}px`, maxHeight: "120px" }}
             className="transition-transform duration-300 hover:scale-105"
           />
         </div>

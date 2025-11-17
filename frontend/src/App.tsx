@@ -4,8 +4,6 @@ import { motion } from "framer-motion";
 
 import { db } from "./services/firebase";
 
-
-
 import Header from "./components/Header";
 import SessionCreator from "./components/SessionCreator";
 import SessionJoiner from "./components/SessionJoiner";
@@ -18,8 +16,6 @@ import TeacherMode from "./components/TeacherMode";
 import Leaderboard from "./components/Leaderboard";
 import TutorialDental from "./components/TutorialDental"; 
 
-
-
 import { showCustomToast } from "./components/CustomToast";
 
 // SVGs de las cards y teacher
@@ -29,8 +25,17 @@ import LearnIcon from "./assets/img/learn.svg";
 import IaIcon from "./assets/img/ia.svg";
 import DienteIcon from "./assets/img/dientelupa.png";
 
+// Interface para las preguntas
+interface Pregunta {
+  pregunta: string;
+  opciones: string[];
+  correcta: string;
+  dificultad: "baja" | "media" | "alta";
+  explicacion: string;
+}
+
 function App() {
-console.log("Firestore conectado:", db);
+  console.log("Firestore conectado:", db);
 
   const [vista, setVista] = useState<
     | "inicio"
@@ -52,6 +57,8 @@ console.log("Firestore conectado:", db);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   
+  // NUEVO ESTADO: Guardar las preguntas creadas en TeacherMode
+  const [preguntasTeacher, setPreguntasTeacher] = useState<Pregunta[]>([]);
 
   // Funciones de sesión
   const handleCrearSesion = async (codigo: string, file?: File | null) => {
@@ -130,13 +137,20 @@ console.log("Firestore conectado:", db);
     showCustomToast("Análisis corregido", DienteIcon);
   };
 
-  
+  // NUEVA FUNCIÓN: Manejar cuando el teacher finaliza con preguntas
+  const handleTeacherFinalizar = (preguntas: Pregunta[]) => {
+    setPreguntasTeacher(preguntas);
+    showCustomToast(`${preguntas.length} pregunta(s) guardada(s)`, DienteIcon);
+    setVista("dashboard"); // O puedes cambiar a "alumno" si quieres ir directo al estudiante
+  };
+
   const handleGoToTeacherMode = () => setVista("teacher");
   const handleGoToLeaderboard = () => setVista("leaderboard");
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#E8F4FA] to-[#F8FBFC] text-gray-800 font-sans flex flex-col relative transition-colors duration-700">
-      <div className="max-w-[1100px] w-full mx-auto px-4 sm:px-6 lg:px-8">
+     <div className="w-full max-w-screen-lg mx-auto px-4">
+
       <Header logoSize={120} />
 
       <Toaster
@@ -185,7 +199,6 @@ console.log("Firestore conectado:", db);
                 >
                   Unirse a sesión
                 </button>
-
               </div>
 
               {/* CARDS ABAJO */}
@@ -235,6 +248,7 @@ console.log("Firestore conectado:", db);
               codigo={codigoSesion}
               radiografiaURL={radiografiaURL}
               onVolver={() => setVista("inicio")}
+              preguntas={preguntasTeacher} // ← PASA LAS PREGUNTAS AQUÍ
             />
           )}
 
@@ -258,25 +272,24 @@ console.log("Firestore conectado:", db);
           )}
 
           {/* === MODO DOCENTE === */}
-        {vista === "teacher" && (
-          <TeacherMode
-            onVolver={() => setVista("inicio")}
-            onFinalizar={() => setVista("dashboard")}
-          />
-        )}
+          {vista === "teacher" && (
+            <TeacherMode
+              onVolver={() => setVista("inicio")}
+              onFinalizar={handleTeacherFinalizar} // ← USA LA NUEVA FUNCIÓN
+            />
+          )}
 
-        {vista === "dashboard" && (
-          <SessionDashboard
-            codigo={codigoSesion}
-            onVolver={() => setVista("inicio")}
-          />
-        )}
+          {vista === "dashboard" && (
+            <SessionDashboard
+              codigo={codigoSesion}
+              onVolver={() => setVista("inicio")}
+            />
+          )}
 
-
-        {/* === LEADERBOARD === */}
-        {vista === "leaderboard" && (
-          <Leaderboard onVolver={() => setVista("inicio")} />
-        )}
+          {/* === LEADERBOARD === */}
+          {vista === "leaderboard" && (
+            <Leaderboard onVolver={() => setVista("inicio")} />
+          )}
 
         </div>
       </main>
@@ -315,7 +328,7 @@ console.log("Firestore conectado:", db);
         {/* TUTORIAL */}
         {showTutorial && (
           <TutorialDental
-            onClose={()         => setShowTutorial(false)}
+            onClose={() => setShowTutorial(false)}
           />
         )}
 
