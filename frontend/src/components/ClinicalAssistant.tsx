@@ -17,7 +17,8 @@ const ClinicalAssistant: React.FC<ClinicalAssistantProps> = ({ diagnosis, confid
   const [messages, setMessages] = useState<Message[]>([
     { sender: "bot", text: `Diagnóstico detectado: ${diagnosis}` },
     { sender: "bot", text: `Nivel de confianza: ${confidence}%` },
-    { sender: "bot", text: "Puedes preguntarme más sobre esta patología o su tratamiento 👇" },
+    { sender: "bot", text: "Puedes preguntarme más sobre esta patología o su tratamiento" },
+    { sender: "bot", text: "Si tienes dudas acerca del funcionamiento de la app escribe 'tutorial'" },
   ]);
 
   const [userInput, setUserInput] = useState("");

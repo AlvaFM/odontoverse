@@ -137,11 +137,10 @@ function App() {
     showCustomToast("Análisis corregido", DienteIcon);
   };
 
-  // NUEVA FUNCIÓN: Manejar cuando el teacher finaliza con preguntas
   const handleTeacherFinalizar = (preguntas: Pregunta[]) => {
     setPreguntasTeacher(preguntas);
     showCustomToast(`${preguntas.length} pregunta(s) guardada(s)`, DienteIcon);
-    setVista("dashboard"); // O puedes cambiar a "alumno" si quieres ir directo al estudiante
+    setVista("dashboard");
   };
 
   const handleGoToTeacherMode = () => setVista("teacher");
@@ -154,9 +153,9 @@ function App() {
       <Header logoSize={120} />
 
       <Toaster
-        position="top-center"
+        position="top-right"
         toastOptions={{
-          duration: 3500,
+          duration: 3000,
           style: {
             background: "#D6E6F2",
             color: "#034C7D",
@@ -316,14 +315,6 @@ function App() {
             />
           </div>
         )}
-
-      {/* BOTÓN FLOTANTE PARA ABRIR TUTORIAL */}
-        <button
-          className="fixed bottom-40 right-8 bg-[#FFD166] text-[#034C7D] font-bold px-6 py-3 rounded-full z-50"
-          onClick={() => setShowTutorial(true)}
-        >
-          Abrir Tutorial
-        </button>
 
         {/* TUTORIAL */}
         {showTutorial && (

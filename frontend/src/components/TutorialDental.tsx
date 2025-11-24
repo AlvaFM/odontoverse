@@ -59,7 +59,7 @@ const steps: Step[] = [
   },
   {
     id: 8,
-    description: "Y eso sería el 'toothorial' por el momento ¡Buena suerte! :)",
+    description: "Y eso sería el tutorial por el momento ¡Buena suerte! :)",
     targetTop: "50%",
     centerHorizontal: true,
     offsetTop: "-20px",
@@ -80,7 +80,6 @@ export default function TutorialDental({ onClose }: TutorialDentalProps) {
     if (activeStep > 0) setActiveStep(activeStep - 1);
   };
 
-  // Determina left según step, usando solo porcentajes para mantener proporción
   const getLeft = () => {
     if (step.centerHorizontal) return "50%";
     switch (step.id) {
@@ -129,45 +128,50 @@ export default function TutorialDental({ onClose }: TutorialDentalProps) {
           )}
 
           {/* Texto flotante */}
-          <div
-            className={`mt-2 w-64 sm:w-72 md:w-80 text-white font-semibold text-center p-3 rounded-lg shadow-lg ${
-              isLastStep ? "bg-green-500" : "bg-black/60"
+        <div
+            className={`mt-2 w-64 sm:w-72 md:w-80 text-[#034C7D] font-semibold text-center p-3 rounded-lg shadow-lg ${
+              isLastStep ? "bg-[#d0e4f5]" : "bg-[#d0e4f5]"
             }`}
           >
             {step.description}
           </div>
 
+
           {/* Botones */}
+      {/* Botones */}
+   {/* Botones */}
           {!isLastStep ? (
             <div className="mt-4 flex gap-4 justify-center">
               <button
                 onClick={handlePrev}
                 disabled={activeStep === 0}
-                className={`px-4 py-2 rounded-full ${
+                className={`px-4 py-2 rounded-full transition-colors ${
                   activeStep === 0
-                    ? "bg-gray-400 text-gray-200 cursor-not-allowed"
-                    : "bg-yellow-400 hover:bg-yellow-300 text-white"
+                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    : "bg-[#fff08c] hover:bg-[#ded17e] text-[#4B5563]"
                 }`}
               >
                 Anterior
               </button>
+
               <button
                 onClick={handleNext}
-                className="px-4 py-2 rounded-full bg-green-500 hover:bg-green-400 text-white"
+                className="px-4 py-2 rounded-full bg-[#d0f5e1] hover:bg-[#a3c7b4] text-[#4B5563] transition-colors"
               >
                 Siguiente
               </button>
             </div>
           ) : (
-            <div className="mt-4">
+            <div className="mt-4 flex justify-center">
               <button
                 onClick={onClose}
-                className="px-4 py-2 rounded-full bg-yellow-400 hover:bg-yellow-300 text-white"
+                className="px-4 py-2 rounded-full bg-[#fff08c] hover:bg-[#ded17e] text-[#4B5563] transition-colors"
               >
                 Cerrar
               </button>
             </div>
           )}
+
         </motion.div>
       </AnimatePresence>
     </div>

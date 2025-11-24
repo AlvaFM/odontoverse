@@ -66,7 +66,7 @@ export default function Analyzing({ imageData }: AnalyzingProps) {
 
         <div className="w-full bg-[#E0E0E0] rounded-full h-3 overflow-hidden">
           <div
-            className="h-3 rounded-full bg-gradient-to-r from-[#76C7F3] to-[#034C7D] transition-all duration-300"
+            className="h-3 rounded-full bg-gradient-to-r from-[#76C7F3] to-[#034C7D] transition-all duration-500"
             style={{ width: `${progress}%` }}
           />
         </div>
