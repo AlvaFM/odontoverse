@@ -1,6 +1,6 @@
 # === Backend - Python ===
 # Entornos virtuales
-backend/app/venv/
+backend/venv/
 ENV/
 env/
 
@@ -14,7 +14,12 @@ backend/app/**/*.pyc
 .eggs/
 
 # Modelos y datos grandes
-backend/app/models/*.h5
+backend/app/model/
+*.h5
+*.keras
+*.pkl
+*.pth
+*.joblib
 *.sqlite3
 
 # Logs y temporales
@@ -49,8 +54,3 @@ yarn-error.log*
 # Otros archivos de sistema o temporales
 *.swp
 *.swo
-
-# Modelos de ML (son muy grandes)
-backend/app/model/
-*.keras
-*.h5
