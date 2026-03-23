@@ -1,7 +1,7 @@
-
 import { useState } from "react";
 import CrearSesion from "./CrearSesion";
-import IngresarSesion from "./IngresarSesion"
+import IngresarSesion from "./IngresarSesion";
+import TestSupabase from "./TestSupabase";
 
 export default function SeleccionModo() {
   const [modo, setModo] = useState("");
@@ -11,7 +11,11 @@ export default function SeleccionModo() {
   }
 
   if (modo === "alumno") {
-     return <IngresarSesion />;
+    return <IngresarSesion />;
+  }
+
+  if (modo === "pruebasupabase") {
+    return <TestSupabase />;
   }
 
   return (
@@ -24,6 +28,10 @@ export default function SeleccionModo() {
 
       <button onClick={() => setModo("alumno")}>
         Alumno
+      </button>
+
+      <button onClick={() => setModo("pruebasupabase")}>
+        Probar Supabase
       </button>
     </div>
   );
