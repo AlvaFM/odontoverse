@@ -25,9 +25,40 @@ export default function SalaProfesor({
   const [sesionIniciada, setSesionIniciada] = useState(false);
   const [tiempoRestante, setTiempoRestante] = useState(tiempo * 60);
   const [cargando, setCargando] = useState(false);
+  const [verificandoEstado, setVerificandoEstado] = useState(true);
 
-  // Cargar alumnos existentes y suscribirse a nuevos
+  // Verificar estado actual de la sesión al cargar
   useEffect(() => {
+    const verificarEstadoSesion = async () => {
+      const { data: sesion } = await supabase
+        .from("sesiones")
+        .select("estado, activada_en")
+        .eq("codigo", codigoSesion)
+        .single();
+
+      if (sesion?.estado === "activa") {
+        setSesionIniciada(true);
+        
+        // Calcular tiempo restante si ya estaba activa
+        if (sesion.activada_en) {
+          const activadaEn = new Date(sesion.activada_en).getTime();
+          const ahora = new Date().getTime();
+          const segundosTranscurridos = Math.floor((ahora - activadaEn) / 1000);
+          const tiempoRestanteCalc = Math.max(0, (tiempo * 60) - segundosTranscurridos);
+          setTiempoRestante(tiempoRestanteCalc);
+          
+          if (tiempoRestanteCalc > 0) {
+            iniciarCountdown(tiempoRestanteCalc);
+          } else {
+            finalizarSesion();
+          }
+        }
+      }
+      
+      setVerificandoEstado(false);
+    };
+
+    verificarEstadoSesion();
     cargarAlumnos();
 
     // Escuchar nuevos alumnos en tiempo real
@@ -66,7 +97,27 @@ export default function SalaProfesor({
     }
   };
 
+  const iniciarCountdown = (tiempoInicial?: number) => {
+    const segundosIniciales = tiempoInicial !== undefined ? tiempoInicial : tiempo * 60;
+    
+    const intervalo = setInterval(() => {
+      setTiempoRestante((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalo);
+          finalizarSesion();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
   const iniciarSesion = async () => {
+    if (alumnos.length === 0) {
+      alert("Debe haber al menos un alumno conectado para iniciar la sesión");
+      return;
+    }
+
     setCargando(true);
 
     // Actualizar estado de la sesión a "activa"
@@ -80,25 +131,14 @@ export default function SalaProfesor({
 
     if (error) {
       console.error("Error al iniciar sesión:", error);
-      alert("Error al iniciar la sesión");
+      alert("Error al iniciar la sesión: " + error.message);
       setCargando(false);
       return;
     }
 
     setSesionIniciada(true);
     setCargando(false);
-
-    // Iniciar countdown
-    const intervalo = setInterval(() => {
-      setTiempoRestante((prev) => {
-        if (prev <= 1) {
-          clearInterval(intervalo);
-          finalizarSesion();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    iniciarCountdown();
   };
 
   const finalizarSesion = async () => {
@@ -123,8 +163,12 @@ export default function SalaProfesor({
     return `${mins}:${segs.toString().padStart(2, "0")}`;
   };
 
+  if (verificandoEstado) {
+    return <div>Cargando sala...</div>;
+  }
+
   return (
-    <div>
+    <div style={{ padding: "1rem" }}>
       <h2>Sala del profesor</h2>
 
       <p>
@@ -135,10 +179,10 @@ export default function SalaProfesor({
       </p>
 
       {sesionIniciada ? (
-        <div>
+        <div style={{ backgroundColor: "#e8f5e9", padding: "10px", borderRadius: "8px" }}>
           <h3>⏱️ Sesión activa</h3>
-          <p>
-            <strong>Tiempo restante:</strong> {formatearTiempo(tiempoRestante)}
+          <p style={{ fontSize: "24px", fontWeight: "bold" }}>
+            Tiempo restante: {formatearTiempo(tiempoRestante)}
           </p>
         </div>
       ) : (
@@ -172,13 +216,35 @@ export default function SalaProfesor({
       )}
 
       {!sesionIniciada && (
-        <button onClick={iniciarSesion} disabled={cargando || alumnos.length === 0}>
+        <button 
+          onClick={iniciarSesion} 
+          disabled={cargando || alumnos.length === 0}
+          style={{
+            padding: "10px 20px",
+            fontSize: "16px",
+            backgroundColor: "#4CAF50",
+            color: "white",
+            border: "none",
+            borderRadius: "5px",
+            cursor: alumnos.length === 0 ? "not-allowed" : "pointer"
+          }}
+        >
           {cargando ? "Iniciando..." : "🚀 Iniciar temporizador"}
         </button>
       )}
 
       {sesionIniciada && (
-        <button onClick={finalizarSesion} style={{ backgroundColor: "red" }}>
+        <button 
+          onClick={finalizarSesion} 
+          style={{ 
+            backgroundColor: "red", 
+            color: "white",
+            padding: "10px 20px",
+            border: "none",
+            borderRadius: "5px",
+            cursor: "pointer"
+          }}
+        >
           ⏹️ Finalizar sesión
         </button>
       )}

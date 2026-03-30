@@ -10,6 +10,7 @@ export default function IngresarSesion() {
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
   const [alumnoId, setAlumnoId] = useState<string>("");
+  const [esperandoInicio, setEsperandoInicio] = useState(false);
 
   const unirseASesion = async () => {
     // Validaciones básicas
@@ -29,7 +30,7 @@ export default function IngresarSesion() {
     setCargando(true);
     setError("");
 
-    // 1. Verificar si la sesión existe y está activa
+    // 1. Verificar si la sesión existe
     const { data: sesion, error: errorSesion } = await supabase
       .from("sesiones")
       .select("codigo, estado, tiempo_limite")
@@ -42,19 +43,14 @@ export default function IngresarSesion() {
       return;
     }
 
-    if (sesion.estado !== "activa") {
-      if (sesion.estado === "configurando") {
-        setError("La sesión aún no ha comenzado. Espera a que el profesor la inicie.");
-      } else if (sesion.estado === "finalizada") {
-        setError("Esta sesión ya finalizó.");
-      } else {
-        setError("La sesión no está disponible.");
-      }
+    // 2. Verificar el estado de la sesión
+    if (sesion.estado === "finalizada") {
+      setError("Esta sesión ya finalizó.");
       setCargando(false);
       return;
     }
 
-    // 2. Verificar si el alumno ya está registrado
+    // 3. Verificar si el alumno ya está registrado
     const { data: alumnoExistente } = await supabase
       .from("alumnos")
       .select("id")
@@ -64,7 +60,7 @@ export default function IngresarSesion() {
 
     let alumnoIdTemp = alumnoExistente?.id;
 
-    // 3. Si no existe, registrar al alumno
+    // 4. Si no existe, registrar al alumno
     if (!alumnoIdTemp) {
       const { data: nuevoAlumno, error: errorAlumno } = await supabase
         .from("alumnos")
@@ -87,8 +83,67 @@ export default function IngresarSesion() {
 
     setAlumnoId(alumnoIdTemp);
     setCargando(false);
-    setEntrar(true);
+
+    // 5. Si la sesión está configurando, mostrar mensaje de espera
+    if (sesion.estado === "configurando") {
+      setEsperandoInicio(true);
+      
+      // Suscribirse a cambios en la sesión
+      const subscription = supabase
+        .channel(`sesion_${codigoSesion}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "sesiones",
+            filter: `codigo=eq.${codigoSesion.toUpperCase()}`,
+          },
+          (payload) => {
+            if (payload.new.estado === "activa") {
+              subscription.unsubscribe();
+              setEntrar(true);
+            }
+          }
+        )
+        .subscribe();
+        
+      return;
+    }
+
+    // 6. Si está activa, entrar directamente
+    if (sesion.estado === "activa") {
+      setEntrar(true);
+    }
   };
+
+  if (esperandoInicio) {
+    return (
+      <div style={{ textAlign: "center", padding: "2rem" }}>
+        <h2>⏳ Sala de espera</h2>
+        <p><strong>{nombre}</strong>, ya estás registrado en la sesión.</p>
+        <p>El profesor <strong>iniciará el cuestionario en breve</strong>.</p>
+        <p>No cierres esta ventana.</p>
+        <div style={{ marginTop: "20px" }}>
+          <div className="spinner" style={{
+            width: "40px",
+            height: "40px",
+            border: "4px solid #f3f3f3",
+            borderTop: "4px solid #3498db",
+            borderRadius: "50%",
+            animation: "spin 1s linear infinite",
+            margin: "0 auto"
+          }}></div>
+        </div>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   if (entrar) {
     return (
@@ -102,7 +157,7 @@ export default function IngresarSesion() {
   }
 
   return (
-    <div>
+    <div style={{ padding: "1rem" }}>
       <h2>Ingresar a sesión clínica</h2>
 
       <input

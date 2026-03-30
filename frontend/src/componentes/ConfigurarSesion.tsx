@@ -45,12 +45,11 @@ export default function ConfigurarSesion({
     setGuardando(true);
     setError("");
 
-    // 1. Actualizar la sesión con el tiempo límite
+    // 1. Actualizar la sesión con el tiempo límite (sin diagnostico_confirmado)
     const { error: errorSesion } = await supabase
       .from("sesiones")
       .update({ 
-        tiempo_limite: tiempo * 60, // Convertir a segundos
-        diagnostico_confirmado: diagnostico
+        tiempo_limite: tiempo * 60 // Convertir a segundos
       })
       .eq("codigo", codigoSesion);
 
@@ -61,10 +60,14 @@ export default function ConfigurarSesion({
     }
 
     // 2. Eliminar preguntas anteriores si existían
-    await supabase
+    const { error: errorDelete } = await supabase
       .from("preguntas")
       .delete()
       .eq("sesion_codigo", codigoSesion);
+
+    if (errorDelete) {
+      console.error("Error al eliminar preguntas anteriores:", errorDelete);
+    }
 
     // 3. Guardar las nuevas preguntas
     for (let i = 0; i < preguntasValidas.length; i++) {
@@ -79,7 +82,7 @@ export default function ConfigurarSesion({
 
       if (errorPregunta) {
         console.error("Error al guardar pregunta:", errorPregunta);
-        setError("Error al guardar las preguntas");
+        setError("Error al guardar las preguntas: " + errorPregunta.message);
         setGuardando(false);
         return;
       }
@@ -101,7 +104,7 @@ export default function ConfigurarSesion({
   }
 
   return (
-    <div>
+    <div style={{ padding: "1rem" }}>
       <h2>Configurar sesión clínica</h2>
 
       <p><strong>Sesión:</strong> {codigoSesion}</p>
@@ -113,6 +116,7 @@ export default function ConfigurarSesion({
         min="1"
         value={tiempo}
         onChange={(e) => setTiempo(Number(e.target.value))}
+        style={{ width: "80px", padding: "5px" }}
       />
 
       <h3>Preguntas clínicas</h3>
@@ -125,7 +129,7 @@ export default function ConfigurarSesion({
             placeholder={`Pregunta ${index + 1}`}
             value={pregunta}
             onChange={(e) => actualizarPregunta(index, e.target.value)}
-            style={{ width: "300px", margin: "5px" }}
+            style={{ width: "300px", margin: "5px", padding: "5px" }}
           />
         </div>
       ))}
@@ -139,7 +143,7 @@ export default function ConfigurarSesion({
       {error && <p style={{ color: "red" }}>{error}</p>}
 
       <button onClick={guardarConfiguracion} disabled={guardando}>
-        {guardando ? "Guardando..." : " Abrir sala"}
+        {guardando ? "Guardando..." : "🚀 Abrir sala"}
       </button>
     </div>
   );
