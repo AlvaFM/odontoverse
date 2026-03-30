@@ -28,6 +28,7 @@ export default function VistaAlumno({
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
   const [cargando, setCargando] = useState(true);
+  const [sesionAunActiva, setSesionAunActiva] = useState(true);
 
   // Cargar preguntas y tiempo de la sesión
   useEffect(() => {
@@ -35,9 +36,16 @@ export default function VistaAlumno({
       // Obtener tiempo límite de la sesión
       const { data: sesion } = await supabase
         .from("sesiones")
-        .select("tiempo_limite")
+        .select("tiempo_limite, estado")
         .eq("codigo", codigoSesion)
         .single();
+
+      if (!sesion || sesion.estado !== "activa") {
+        setSesionAunActiva(false);
+        setTiempoFinalizado(true);
+        setCargando(false);
+        return;
+      }
 
       if (sesion?.tiempo_limite) {
         setTiempo(sesion.tiempo_limite);
@@ -50,39 +58,55 @@ export default function VistaAlumno({
         .eq("sesion_codigo", codigoSesion)
         .order("orden", { ascending: true });
 
-      if (preguntasData) {
+      if (preguntasData && preguntasData.length > 0) {
         setPreguntas(preguntasData);
+      } else {
+        setTiempoFinalizado(true);
       }
 
       setCargando(false);
     };
 
     cargarDatosSesion();
+
+    // Verificar periódicamente si la sesión sigue activa
+    const interval = setInterval(async () => {
+      const { data: sesion } = await supabase
+        .from("sesiones")
+        .select("estado")
+        .eq("codigo", codigoSesion)
+        .single();
+      
+      if (sesion?.estado !== "activa") {
+        setSesionAunActiva(false);
+        setTiempoFinalizado(true);
+        clearInterval(interval);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [codigoSesion]);
 
   // Timer
   useEffect(() => {
-    if (tiempo === null || tiempo <= 0) return;
+    if (tiempo === null || tiempo <= 0 || !sesionAunActiva) return;
 
     if (tiempo <= 0) {
       setTiempoFinalizado(true);
-      enviarRespuestasAutomaticamente();
+      guardarRespuestasEnBD();
       return;
     }
 
     const intervalo = setInterval(() => {
-      setTiempo((prev) => (prev !== null ? prev - 1 : null));
+      setTiempo((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
     }, 1000);
 
     return () => clearInterval(intervalo);
-  }, [tiempo]);
-
-  const enviarRespuestasAutomaticamente = async () => {
-    if (enviado) return;
-    await guardarRespuestasEnBD();
-  };
+  }, [tiempo, sesionAunActiva]);
 
   const guardarRespuestasEnBD = async () => {
+    if (enviado) return;
+    
     setEnviando(true);
 
     for (const [preguntaId, respuestaTexto] of Object.entries(respuestas)) {
@@ -101,6 +125,7 @@ export default function VistaAlumno({
   };
 
   const guardarRespuesta = (valor: string) => {
+    if (preguntas.length === 0) return;
     const preguntaActual = preguntas[indicePregunta];
     setRespuestas({
       ...respuestas,
@@ -126,13 +151,32 @@ export default function VistaAlumno({
   };
 
   if (cargando) {
-    return <div>Cargando preguntas...</div>;
-  }
-
-  if (tiempoFinalizado || enviado) {
     return (
       <div style={{ textAlign: "center", padding: "2rem" }}>
-        <h2>⏰ Tiempo finalizado</h2>
+        <h2>Cargando cuestionario...</h2>
+        <div className="spinner" style={{
+          width: "40px",
+          height: "40px",
+          border: "4px solid #f3f3f3",
+          borderTop: "4px solid #3498db",
+          borderRadius: "50%",
+          animation: "spin 1s linear infinite",
+          margin: "20px auto"
+        }}></div>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  if (tiempoFinalizado || enviado || !sesionAunActiva) {
+    return (
+      <div style={{ textAlign: "center", padding: "2rem" }}>
+        <h2>⏰ {!sesionAunActiva ? "Sesión finalizada" : "Tiempo finalizado"}</h2>
         <p>Gracias por participar, {nombre}.</p>
         <p>Tus respuestas han sido enviadas al profesor.</p>
         <p>Los resultados te llegarán a: <strong>{email}</strong></p>
@@ -145,24 +189,32 @@ export default function VistaAlumno({
   }
 
   if (preguntas.length === 0) {
-    return <div>No hay preguntas configuradas para esta sesión.</div>;
+    return (
+      <div style={{ textAlign: "center", padding: "2rem" }}>
+        <h2>⚠️ No hay preguntas</h2>
+        <p>El profesor aún no ha configurado las preguntas para esta sesión.</p>
+        <button onClick={() => window.location.reload()}>
+          Volver al inicio
+        </button>
+      </div>
+    );
   }
 
   const preguntaActual = preguntas[indicePregunta];
   const esUltima = indicePregunta === preguntas.length - 1;
 
   return (
-    <div>
+    <div style={{ padding: "1rem" }}>
       <h2>🧑‍🎓 Alumno: {nombre}</h2>
       <p><strong>Sesión:</strong> {codigoSesion}</p>
       <p><strong>Email para resultados:</strong> {email}</p>
 
       <div style={{ 
-        backgroundColor: "#f0f0f0", 
+        backgroundColor: "#e8f5e9", 
         padding: "10px", 
         borderRadius: "8px",
         textAlign: "center",
-        fontSize: "24px",
+        fontSize: "28px",
         fontWeight: "bold"
       }}>
         ⏱️ Tiempo restante: {formatearTiempo(tiempo || 0)}
@@ -179,17 +231,21 @@ export default function VistaAlumno({
         placeholder="Escribe tu respuesta aquí..."
         value={respuestas[preguntaActual.id] || ""}
         onChange={(e) => guardarRespuesta(e.target.value)}
-        style={{ width: "100%", maxWidth: "500px", padding: "10px" }}
+        style={{ width: "100%", maxWidth: "600px", padding: "10px", fontSize: "14px" }}
       />
 
       <br /><br />
 
       {!esUltima ? (
-        <button onClick={siguientePregunta}>
+        <button onClick={siguientePregunta} style={{ padding: "10px 20px" }}>
           Siguiente pregunta →
         </button>
       ) : (
-        <button onClick={enviarRespuestas} disabled={enviando}>
+        <button 
+          onClick={enviarRespuestas} 
+          disabled={enviando}
+          style={{ padding: "10px 20px", backgroundColor: "#4CAF50", color: "white" }}
+        >
           {enviando ? "Enviando..." : "📤 Enviar respuestas"}
         </button>
       )}

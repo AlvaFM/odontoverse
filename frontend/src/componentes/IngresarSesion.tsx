@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import VistaAlumno from "./VistaAlumno";
 
@@ -11,6 +11,16 @@ export default function IngresarSesion() {
   const [cargando, setCargando] = useState(false);
   const [alumnoId, setAlumnoId] = useState<string>("");
   const [esperandoInicio, setEsperandoInicio] = useState(false);
+  const subscriptionRef = useRef<any>(null);
+
+  // Limpiar suscripción al desmontar
+  useEffect(() => {
+    return () => {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+      }
+    };
+  }, []);
 
   const unirseASesion = async () => {
     // Validaciones básicas
@@ -84,12 +94,18 @@ export default function IngresarSesion() {
     setAlumnoId(alumnoIdTemp);
     setCargando(false);
 
-    // 5. Si la sesión está configurando, mostrar mensaje de espera
+    // 5. Si la sesión está activa, entrar directamente
+    if (sesion.estado === "activa") {
+      setEntrar(true);
+      return;
+    }
+
+    // 6. Si está configurando, mostrar sala de espera y suscribirse
     if (sesion.estado === "configurando") {
       setEsperandoInicio(true);
       
       // Suscribirse a cambios en la sesión
-      const subscription = supabase
+      const channel = supabase
         .channel(`sesion_${codigoSesion}`)
         .on(
           "postgres_changes",
@@ -100,20 +116,17 @@ export default function IngresarSesion() {
             filter: `codigo=eq.${codigoSesion.toUpperCase()}`,
           },
           (payload) => {
+            console.log("Cambio en sesión:", payload.new.estado);
             if (payload.new.estado === "activa") {
-              subscription.unsubscribe();
+              channel.unsubscribe();
               setEntrar(true);
             }
           }
         )
         .subscribe();
-        
+      
+      subscriptionRef.current = channel;
       return;
-    }
-
-    // 6. Si está activa, entrar directamente
-    if (sesion.estado === "activa") {
-      setEntrar(true);
     }
   };
 
