@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
 interface Props {
@@ -15,6 +15,12 @@ interface Alumno {
   joined_en: string;
 }
 
+interface Sesion {
+  estado: string;
+  activada_en: string | null;
+  tiempo_límite: number | null;
+}
+
 export default function SalaProfesor({
   codigoSesion,
   preguntas,
@@ -26,29 +32,71 @@ export default function SalaProfesor({
   const [tiempoRestante, setTiempoRestante] = useState(tiempo * 60);
   const [cargando, setCargando] = useState(false);
   const [verificandoEstado, setVerificandoEstado] = useState(true);
+  const pollingAlumnosRef = useRef<number | null>(null);
+  const pollingEstadoRef = useRef<number | null>(null);
+  const countdownRef = useRef<number | null>(null);
 
-  // Verificar estado actual de la sesión al cargar
+  useEffect(() => {
+    return () => {
+      if (pollingAlumnosRef.current) clearInterval(pollingAlumnosRef.current);
+      if (pollingEstadoRef.current) clearInterval(pollingEstadoRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, []);
+
+  // Cargar alumnos periódicamente
+  useEffect(() => {
+    const cargarAlumnos = async () => {
+      const { data, error } = await supabase
+        .from("alumnos")
+        .select("*")
+        .eq("sesion_codigo", codigoSesion);
+
+      if (error) {
+        console.error("Error al cargar alumnos:", error);
+      } else if (data) {
+        setAlumnos(data as Alumno[]);
+      }
+    };
+
+    cargarAlumnos();
+    pollingAlumnosRef.current = window.setInterval(cargarAlumnos, 3000);
+
+    return () => {
+      if (pollingAlumnosRef.current) clearInterval(pollingAlumnosRef.current);
+    };
+  }, [codigoSesion]);
+
+  // Verificar estado de la sesión periódicamente
   useEffect(() => {
     const verificarEstadoSesion = async () => {
-      const { data: sesion } = await supabase
+      const { data, error } = await supabase
         .from("sesiones")
-        .select("estado, activada_en")
+        .select("estado, activada_en, tiempo_límite")
         .eq("codigo", codigoSesion)
-        .single();
+        .maybeSingle();
 
-      if (sesion?.estado === "activa") {
+      if (error) {
+        console.error("Error al verificar sesión:", error);
+        setVerificandoEstado(false);
+        return;
+      }
+
+      const sesion = data as Sesion | null;
+
+      if (sesion?.estado === "activa" && !sesionIniciada) {
         setSesionIniciada(true);
         
-        // Calcular tiempo restante si ya estaba activa
-        if (sesion.activada_en) {
+        // Calcular tiempo restante
+        if (sesion.activada_en && sesion.tiempo_límite) {
           const activadaEn = new Date(sesion.activada_en).getTime();
           const ahora = new Date().getTime();
           const segundosTranscurridos = Math.floor((ahora - activadaEn) / 1000);
-          const tiempoRestanteCalc = Math.max(0, (tiempo * 60) - segundosTranscurridos);
-          setTiempoRestante(tiempoRestanteCalc);
+          const restante = Math.max(0, sesion.tiempo_límite - segundosTranscurridos);
+          setTiempoRestante(restante);
           
-          if (tiempoRestanteCalc > 0) {
-            iniciarCountdown(tiempoRestanteCalc);
+          if (restante > 0) {
+            iniciarCountdown(restante);
           } else {
             finalizarSesion();
           }
@@ -59,51 +107,20 @@ export default function SalaProfesor({
     };
 
     verificarEstadoSesion();
-    cargarAlumnos();
-
-    // Escuchar nuevos alumnos en tiempo real
-    const subscription = supabase
-      .channel(`sala_${codigoSesion}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "alumnos",
-          filter: `sesion_codigo=eq.${codigoSesion}`,
-        },
-        (payload) => {
-          const nuevoAlumno = payload.new as Alumno;
-          setAlumnos((prev) => [...prev, nuevoAlumno]);
-        }
-      )
-      .subscribe();
+    pollingEstadoRef.current = window.setInterval(verificarEstadoSesion, 2000);
 
     return () => {
-      subscription.unsubscribe();
+      if (pollingEstadoRef.current) clearInterval(pollingEstadoRef.current);
     };
-  }, [codigoSesion]);
+  }, [codigoSesion, sesionIniciada]);
 
-  const cargarAlumnos = async () => {
-    const { data, error } = await supabase
-      .from("alumnos")
-      .select("*")
-      .eq("sesion_codigo", codigoSesion);
-
-    if (error) {
-      console.error("Error al cargar alumnos:", error);
-    } else if (data) {
-      setAlumnos(data);
-    }
-  };
-
-  const iniciarCountdown = (tiempoInicial?: number) => {
-    const segundosIniciales = tiempoInicial !== undefined ? tiempoInicial : tiempo * 60;
+  const iniciarCountdown = (tiempoInicial: number) => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
     
-    const intervalo = setInterval(() => {
+    countdownRef.current = window.setInterval(() => {
       setTiempoRestante((prev) => {
         if (prev <= 1) {
-          clearInterval(intervalo);
+          if (countdownRef.current) clearInterval(countdownRef.current);
           finalizarSesion();
           return 0;
         }
@@ -120,7 +137,6 @@ export default function SalaProfesor({
 
     setCargando(true);
 
-    // Actualizar estado de la sesión a "activa"
     const { error } = await supabase
       .from("sesiones")
       .update({
@@ -138,10 +154,12 @@ export default function SalaProfesor({
 
     setSesionIniciada(true);
     setCargando(false);
-    iniciarCountdown();
+    iniciarCountdown(tiempo * 60);
   };
 
   const finalizarSesion = async () => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    
     const { error } = await supabase
       .from("sesiones")
       .update({
@@ -171,12 +189,8 @@ export default function SalaProfesor({
     <div style={{ padding: "1rem" }}>
       <h2>Sala del profesor</h2>
 
-      <p>
-        <strong>Código sesión:</strong> {codigoSesion}
-      </p>
-      <p>
-        <strong>Profesor:</strong> {profesorEmail}
-      </p>
+      <p><strong>Código sesión:</strong> {codigoSesion}</p>
+      <p><strong>Profesor:</strong> {profesorEmail}</p>
 
       {sesionIniciada ? (
         <div style={{ backgroundColor: "#e8f5e9", padding: "10px", borderRadius: "8px" }}>
@@ -187,30 +201,24 @@ export default function SalaProfesor({
         </div>
       ) : (
         <div>
-          <p>
-            <strong>Tiempo total:</strong> {tiempo} minutos
-          </p>
+          <p><strong>Tiempo total:</strong> {tiempo} minutos</p>
         </div>
       )}
 
       <h3>📋 Preguntas activas</h3>
       <ul>
         {preguntas.map((p, i) => (
-          <li key={i}>
-            {i + 1}. {p}
-          </li>
+          <li key={i}>{i + 1}. {p}</li>
         ))}
       </ul>
 
       <h3>👨‍🎓 Alumnos conectados ({alumnos.length})</h3>
       {alumnos.length === 0 ? (
-        <p>Esperando alumnos...</p>
+        <p>Esperando alumnos... (actualizando cada 3 segundos)</p>
       ) : (
         <ul>
           {alumnos.map((alumno) => (
-            <li key={alumno.id}>
-              {alumno.nombre} - {alumno.email}
-            </li>
+            <li key={alumno.id}>{alumno.nombre} - {alumno.email}</li>
           ))}
         </ul>
       )}

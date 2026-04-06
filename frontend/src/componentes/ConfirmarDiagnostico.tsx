@@ -21,7 +21,6 @@ export default function ConfirmarDiagnostico({
   const aprobarDiagnostico = async () => {
     setGuardando(true);
     
-    // Actualizar el caso clínico como aprobado
     const { error } = await supabase
       .from("casos_clinicos")
       .update({ diagnostico_aprobado: true })
