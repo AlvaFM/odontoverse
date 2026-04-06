@@ -10,7 +10,6 @@ export default function SeleccionModo() {
   const [profesorEmail, setProfesorEmail] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
 
-  // Verificar si ya hay sesión activa
   useEffect(() => {
     const verificarSesion = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -20,7 +19,7 @@ export default function SeleccionModo() {
       }
       setCargando(false);
     };
-    
+
     verificarSesion();
   }, []);
 
@@ -31,16 +30,15 @@ export default function SeleccionModo() {
   };
 
   if (cargando) {
-    return <div>Cargando...</div>;
+    return <div className="min-h-screen flex items-center justify-center bg-sky-100 text-slate-600">Cargando...</div>;
   }
 
-  // Profesor: si no tiene email, mostrar login
   if (modo === "profesor" && !profesorEmail) {
     return <LoginProfesor onLoginSuccess={setProfesorEmail} />;
   }
 
   if (modo === "profesor" && profesorEmail) {
-    return <CrearSesion profesorEmail={profesorEmail} onLogout={handleLogout} />;
+    return <CrearSesion profesorEmail={profesorEmail} onVolver={handleLogout} />
   }
 
   if (modo === "alumno") {
@@ -51,23 +49,39 @@ export default function SeleccionModo() {
     return <TestSupabase />;
   }
 
-  // Pantalla de selección inicial
   return (
-    <div style={{ padding: "2rem" }}>
-      <h1>Seleccionar modo</h1>
+    <div className="min-h-screen flex items-center justify-center bg-sky-100">
+      <div className="bg-white/80 backdrop-blur-md shadow-xl rounded-2xl p-8 w-80 flex flex-col items-center">
+        
+        <h1 className="text-2xl font-semibold text-slate-700 mb-6">
+          Seleccionar modo
+        </h1>
 
-      <div style={{ display: "flex", gap: "1rem", flexDirection: "column", maxWidth: "200px" }}>
-        <button onClick={() => setModo("profesor")}>
-          👨‍🏫 Profesor
-        </button>
+        <div className="flex flex-col gap-4 w-full">
+          
+          <button
+            onClick={() => setModo("profesor")}
+            className="bg-sky-300 hover:bg-sky-400 text-slate-800 py-3 rounded-xl transition-all duration-200 shadow-sm"
+          >
+            👨‍🏫 Profesor
+          </button>
 
-        <button onClick={() => setModo("alumno")}>
-          🧑‍🎓 Alumno
-        </button>
+          <button
+            onClick={() => setModo("alumno")}
+            className="bg-cyan-200 hover:bg-cyan-300 text-slate-800 py-3 rounded-xl transition-all duration-200 shadow-sm"
+          >
+            🧑‍🎓 Alumno
+          </button>
 
-        <button onClick={() => setModo("pruebasupabase")}>
-          🔧 Probar Supabase
-        </button>
+          <button
+            onClick={() => setModo("pruebasupabase")}
+            className="bg-indigo-200 hover:bg-indigo-300 text-slate-800 py-3 rounded-xl transition-all duration-200 shadow-sm"
+          >
+            🔧 Probar Supabase
+          </button>
+
+        </div>
+
       </div>
     </div>
   );
