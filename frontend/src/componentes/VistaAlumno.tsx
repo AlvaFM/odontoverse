@@ -1,195 +1,158 @@
-import { useEffect, useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
-
-interface Props {
-  nombre: string;
-  email: string;
-  codigoSesion: string;
-  alumnoId: string;
-}
-
-interface Pregunta {
-  id: string;
-  texto: string;
-  orden: number;
-}
+import VistaAlumno from "./VistaAlumno";
 
 interface Sesion {
+  codigo: string;
   estado: string;
-  activada_en: string | null;
   tiempo_límite: number | null;
 }
 
-export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: Props) {
-  const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
-  const [indicePregunta, setIndicePregunta] = useState<number>(0);
-  const [respuestas, setRespuestas] = useState<{ [preguntaId: string]: string }>({});
-  const [tiempoRestante, setTiempoRestante] = useState<number | null>(null);
-  const [tiempoFinalizado, setTiempoFinalizado] = useState<boolean>(false);
-  const [enviando, setEnviando] = useState<boolean>(false);
-  const [enviado, setEnviado] = useState<boolean>(false);
-  const [cargando, setCargando] = useState<boolean>(true);
+export default function IngresarSesion() {
+  const [nombre, setNombre] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [codigoSesion, setCodigoSesion] = useState<string>("");
+  const [entrar, setEntrar] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const [cargando, setCargando] = useState<boolean>(false);
+  const [alumnoId, setAlumnoId] = useState<string>("");
+  const [esperandoInicio, setEsperandoInicio] = useState<boolean>(false);
   const pollingRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const cargarDatosSesion = async () => {
-      const { data, error } = await supabase
-        .from("sesiones")
-        .select("estado, activada_en, tiempo_límite")
-        .eq("codigo", codigoSesion)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Error al cargar sesión:", error);
-        setTiempoFinalizado(true);
-        setCargando(false);
-        return;
-      }
-
-      const sesion = data as Sesion | null;
-
-      if (!sesion || sesion.estado !== "activa") {
-        setTiempoFinalizado(true);
-        setCargando(false);
-        return;
-      }
-
-      if (sesion.activada_en && sesion.tiempo_límite) {
-        const activadaEn = new Date(sesion.activada_en).getTime();
-        const ahora = new Date().getTime();
-        const segundosTranscurridos = Math.floor((ahora - activadaEn) / 1000);
-        const restante = Math.max(0, sesion.tiempo_límite - segundosTranscurridos);
-        setTiempoRestante(restante);
-
-        if (restante <= 0) {
-          setTiempoFinalizado(true);
-          guardarRespuestasEnBD();
-          setCargando(false);
-          return;
-        }
-      }
-
-      const { data: preguntasData, error: errorPreguntas } = await supabase
-        .from("preguntas")
-        .select("*")
-        .eq("sesion_codigo", codigoSesion)
-        .order("orden", { ascending: true });
-
-      if (errorPreguntas) {
-        console.error("Error al cargar preguntas:", errorPreguntas);
-      }
-
-      if (preguntasData && preguntasData.length > 0) {
-        setPreguntas(preguntasData as Pregunta[]);
-      } else {
-        setTiempoFinalizado(true);
-      }
-
-      setCargando(false);
-    };
-
-    cargarDatosSesion();
-
-    pollingRef.current = window.setInterval(async () => {
-      const { data, error } = await supabase
-        .from("sesiones")
-        .select("estado, activada_en, tiempo_límite")
-        .eq("codigo", codigoSesion)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Error en polling:", error);
-        return;
-      }
-
-      const sesion = data as Sesion | null;
-
-      if (!sesion || sesion.estado !== "activa") {
-        if (pollingRef.current) clearInterval(pollingRef.current);
-        setTiempoFinalizado(true);
-        guardarRespuestasEnBD();
-        return;
-      }
-
-      if (sesion.activada_en && sesion.tiempo_límite) {
-        const activadaEn = new Date(sesion.activada_en).getTime();
-        const ahora = new Date().getTime();
-        const segundosTranscurridos = Math.floor((ahora - activadaEn) / 1000);
-        const restante = Math.max(0, sesion.tiempo_límite - segundosTranscurridos);
-        setTiempoRestante(restante);
-
-        if (restante <= 0 && !tiempoFinalizado) {
-          setTiempoFinalizado(true);
-          guardarRespuestasEnBD();
-        }
-      }
-    }, 1000);
-
     return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-    };
-  }, [codigoSesion]);
-
-  const guardarRespuestasEnBD = async () => {
-    if (enviado) return;
-    
-    setEnviando(true);
-
-    for (const [preguntaId, respuestaTexto] of Object.entries(respuestas)) {
-      if (respuestaTexto.trim()) {
-        await supabase.from("respuestas_alumnos").insert([{
-          alumno_id: alumnoId,
-          pregunta_id: preguntaId,
-          respuesta: respuestaTexto,
-          respondido_en: new Date().toISOString(),
-        }]);
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
       }
+    };
+  }, []);
+
+  const unirseASesion = async () => {
+    if (!nombre.trim()) {
+      setError("Ingresa tu nombre");
+      return;
+    }
+    if (!email.trim()) {
+      setError("Ingresa tu email");
+      return;
+    }
+    if (!codigoSesion.trim()) {
+      setError("Ingresa el código de sesión");
+      return;
     }
 
-    setEnviado(true);
-    setEnviando(false);
-  };
+    setCargando(true);
+    setError("");
 
-  const guardarRespuesta = (valor: string) => {
-    if (preguntas.length === 0) return;
-    const preguntaActual = preguntas[indicePregunta];
-    setRespuestas({
-      ...respuestas,
-      [preguntaActual.id]: valor,
-    });
-  };
+    const { data, error: errorSesion } = await supabase
+      .from("sesiones")
+      .select("codigo, estado, tiempo_límite")
+      .eq("codigo", codigoSesion.toUpperCase())
+      .maybeSingle();
 
-  const siguientePregunta = () => {
-    if (indicePregunta < preguntas.length - 1) {
-      setIndicePregunta(indicePregunta + 1);
+    if (errorSesion) {
+      setError("Error al verificar sesión");
+      setCargando(false);
+      return;
+    }
+
+    const sesion = data as Sesion | null;
+
+    if (!sesion) {
+      setError("Código de sesión inválido");
+      setCargando(false);
+      return;
+    }
+
+    if (sesion.estado === "finalizada") {
+      setError("Esta sesión ya finalizó.");
+      setCargando(false);
+      return;
+    }
+
+    const { data: alumnoExistente } = await supabase
+      .from("alumnos")
+      .select("id")
+      .eq("sesion_codigo", codigoSesion.toUpperCase())
+      .eq("email", email)
+      .maybeSingle();
+
+    let alumnoIdTemp: string = alumnoExistente?.id || "";
+
+    if (!alumnoIdTemp) {
+      const { data: nuevoAlumno, error: errorAlumno } = await supabase
+        .from("alumnos")
+        .insert([{
+          nombre: nombre.trim(),
+          email: email.trim(),
+          sesion_codigo: codigoSesion.toUpperCase(),
+        }])
+        .select()
+        .single();
+
+      if (errorAlumno) {
+        setError("Error al unirse a la sesión: " + errorAlumno.message);
+        setCargando(false);
+        return;
+      }
+
+      alumnoIdTemp = nuevoAlumno.id;
+    }
+
+    setAlumnoId(alumnoIdTemp);
+    setCargando(false);
+
+    if (sesion.estado === "activa") {
+      if (alumnoIdTemp) {
+        setEntrar(true);
+      }
+      return;
+    }
+
+    if (sesion.estado === "configurando") {
+      setEsperandoInicio(true);
+      
+      pollingRef.current = window.setInterval(async () => {
+        const { data: sesionActualData } = await supabase
+          .from("sesiones")
+          .select("estado")
+          .eq("codigo", codigoSesion.toUpperCase())
+          .maybeSingle();
+        
+        const sesionActual = sesionActualData as { estado: string } | null;
+        
+        if (sesionActual?.estado === "activa") {
+          if (pollingRef.current) {
+            clearInterval(pollingRef.current);
+          }
+          if (alumnoIdTemp) {
+            setEntrar(true);
+          }
+        }
+      }, 2000);
+      
+      return;
     }
   };
 
-  const enviarRespuestas = async () => {
-    await guardarRespuestasEnBD();
-    setTiempoFinalizado(true);
-    if (pollingRef.current) clearInterval(pollingRef.current);
-  };
-
-  const formatearTiempo = (segundos: number) => {
-    const mins = Math.floor(segundos / 60);
-    const segs = segundos % 60;
-    return `${mins}:${segs.toString().padStart(2, "0")}`;
-  };
-
-  if (cargando) {
+  if (esperandoInicio) {
     return (
       <div style={{ textAlign: "center", padding: "2rem" }}>
-        <h2>Cargando cuestionario...</h2>
-        <div className="spinner" style={{
-          width: "40px",
-          height: "40px",
-          border: "4px solid #f3f3f3",
-          borderTop: "4px solid #3498db",
-          borderRadius: "50%",
-          animation: "spin 1s linear infinite",
-          margin: "20px auto"
-        }}></div>
+        <h2>⏳ Sala de espera</h2>
+        <p><strong>{nombre}</strong>, ya estás registrado en la sesión.</p>
+        <p>El profesor <strong>iniciará el cuestionario en breve</strong>.</p>
+        <p>No cierres esta ventana. Verificando cada 2 segundos...</p>
+        <div style={{ marginTop: "20px" }}>
+          <div className="spinner" style={{
+            width: "40px",
+            height: "40px",
+            border: "4px solid #f3f3f3",
+            borderTop: "4px solid #3498db",
+            borderRadius: "50%",
+            animation: "spin 1s linear infinite",
+            margin: "0 auto"
+          }}></div>
+        </div>
         <style>{`
           @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -200,82 +163,50 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
     );
   }
 
-  if (tiempoFinalizado || enviado) {
+  if (entrar && alumnoId) {
     return (
-      <div style={{ textAlign: "center", padding: "2rem" }}>
-        <h2>⏰ Tiempo finalizado</h2>
-        <p>Gracias por participar, {nombre}.</p>
-        <p>Tus respuestas han sido enviadas al profesor.</p>
-        <p>Los resultados te llegarán a: <strong>{email}</strong></p>
-        <hr />
-        <button onClick={() => window.location.reload()}>
-          Volver al inicio
-        </button>
-      </div>
+      <VistaAlumno
+        nombre={nombre as string} 
+        email={email as string}
+        codigoSesion={codigoSesion.toUpperCase() as string}
+        alumnoId={alumnoId as string}
+      />
     );
   }
-
-  if (preguntas.length === 0) {
-    return (
-      <div style={{ textAlign: "center", padding: "2rem" }}>
-        <h2>⚠️ No hay preguntas</h2>
-        <p>El profesor aún no ha configurado las preguntas para esta sesión.</p>
-        <button onClick={() => window.location.reload()}>
-          Volver al inicio
-        </button>
-      </div>
-    );
-  }
-
-  const preguntaActual = preguntas[indicePregunta];
-  const esUltima = indicePregunta === preguntas.length - 1;
 
   return (
     <div style={{ padding: "1rem" }}>
-      <h2>🧑‍🎓 Alumno: {nombre}</h2>
-      <p><strong>Sesión:</strong> {codigoSesion}</p>
-      <p><strong>Email para resultados:</strong> {email}</p>
+      <h2>Ingresar a sesión clínica</h2>
 
-      <div style={{ 
-        backgroundColor: "#e8f5e9", 
-        padding: "10px", 
-        borderRadius: "8px",
-        textAlign: "center",
-        fontSize: "28px",
-        fontWeight: "bold"
-      }}>
-        ⏱️ Tiempo restante: {tiempoRestante !== null ? formatearTiempo(tiempoRestante) : "Calculando..."}
-      </div>
-
-      <hr />
-
-      <h3>Pregunta {indicePregunta + 1} de {preguntas.length}</h3>
-      <p style={{ fontSize: "18px", margin: "20px 0" }}>{preguntaActual.texto}</p>
-
-      <textarea
-        rows={6}
-        cols={60}
-        placeholder="Escribe tu respuesta aquí..."
-        value={respuestas[preguntaActual.id] || ""}
-        onChange={(e) => guardarRespuesta(e.target.value)}
-        style={{ width: "100%", maxWidth: "600px", padding: "10px", fontSize: "14px" }}
+      <input
+        type="text"
+        placeholder="Nombre completo"
+        value={nombre}
+        onChange={(e) => setNombre(e.target.value)}
+        style={{ display: "block", margin: "10px 0", padding: "8px", width: "250px" }}
       />
 
-      <br /><br />
+      <input
+        type="email"
+        placeholder="Correo electrónico"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        style={{ display: "block", margin: "10px 0", padding: "8px", width: "250px" }}
+      />
 
-      {!esUltima ? (
-        <button onClick={siguientePregunta} style={{ padding: "10px 20px" }}>
-          Siguiente pregunta →
-        </button>
-      ) : (
-        <button 
-          onClick={enviarRespuestas} 
-          disabled={enviando}
-          style={{ padding: "10px 20px", backgroundColor: "#4CAF50", color: "white" }}
-        >
-          {enviando ? "Enviando..." : "📤 Enviar respuestas"}
-        </button>
-      )}
+      <input
+        type="text"
+        placeholder="Código de sesión"
+        value={codigoSesion}
+        onChange={(e) => setCodigoSesion(e.target.value.toUpperCase())}
+        style={{ display: "block", margin: "10px 0", padding: "8px", width: "250px" }}
+      />
+
+      {error && <p style={{ color: "red", margin: "10px 0" }}>{error}</p>}
+
+      <button onClick={unirseASesion} disabled={cargando}>
+        {cargando ? "Verificando..." : "Unirse a sesión"}
+      </button>
     </div>
   );
 }
