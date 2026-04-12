@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
 interface Props {
@@ -26,6 +26,24 @@ export default function SalaProfesor({
   const [tiempoRestante, setTiempoRestante] = useState(tiempo * 60);
   const [cargando, setCargando] = useState(false);
   const [verificandoEstado, setVerificandoEstado] = useState(true);
+  
+  // Refs para limpiar intervalos
+  const pollingRef = useRef<number | null>(null);
+  const countdownRef = useRef<number | null>(null);
+
+  // Función para cargar alumnos desde Supabase
+  const cargarAlumnos = async () => {
+    const { data, error } = await supabase
+      .from("alumnos")
+      .select("*")
+      .eq("sesion_codigo", codigoSesion);
+
+    if (error) {
+      console.error("Error al cargar alumnos:", error);
+    } else if (data) {
+      setAlumnos(data as Alumno[]);
+    }
+  };
 
   // Verificar estado actual de la sesión al cargar
   useEffect(() => {
@@ -59,9 +77,16 @@ export default function SalaProfesor({
     };
 
     verificarEstadoSesion();
+    
+    // Cargar alumnos inicialmente
     cargarAlumnos();
 
-    // Escuchar nuevos alumnos en tiempo real
+    // POLLING: cada 1 segundo recargar la lista de alumnos
+    pollingRef.current = window.setInterval(() => {
+      cargarAlumnos();
+    }, 1000);
+
+    // Suscripción en tiempo real como respaldo (opcional)
     const subscription = supabase
       .channel(`sala_${codigoSesion}`)
       .on(
@@ -79,31 +104,23 @@ export default function SalaProfesor({
       )
       .subscribe();
 
+    // Limpiar al desmontar
     return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
       subscription.unsubscribe();
     };
   }, [codigoSesion]);
 
-  const cargarAlumnos = async () => {
-    const { data, error } = await supabase
-      .from("alumnos")
-      .select("*")
-      .eq("sesion_codigo", codigoSesion);
-
-    if (error) {
-      console.error("Error al cargar alumnos:", error);
-    } else if (data) {
-      setAlumnos(data);
-    }
-  };
-
   const iniciarCountdown = (tiempoInicial?: number) => {
+    // Limpiar countdown anterior si existe
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    
     const segundosIniciales = tiempoInicial !== undefined ? tiempoInicial : tiempo * 60;
     
-    const intervalo = setInterval(() => {
+    countdownRef.current = window.setInterval(() => {
       setTiempoRestante((prev) => {
         if (prev <= 1) {
-          clearInterval(intervalo);
+          if (countdownRef.current) clearInterval(countdownRef.current);
           finalizarSesion();
           return 0;
         }
@@ -142,6 +159,8 @@ export default function SalaProfesor({
   };
 
   const finalizarSesion = async () => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    
     const { error } = await supabase
       .from("sesiones")
       .update({
@@ -204,7 +223,7 @@ export default function SalaProfesor({
 
       <h3>👨‍🎓 Alumnos conectados ({alumnos.length})</h3>
       {alumnos.length === 0 ? (
-        <p>Esperando alumnos...</p>
+        <p>Esperando alumnos... (actualizando cada 1 segundo)</p>
       ) : (
         <ul>
           {alumnos.map((alumno) => (

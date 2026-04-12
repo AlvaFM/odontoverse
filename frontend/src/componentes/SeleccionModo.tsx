@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import LoginProfesor from "./loginProfesor";
+import LoginProfesor from "./LoginProfesor";
 import CrearSesion from "./CrearSesion";
 import IngresarSesion from "./IngresarSesion";
 import TestSupabase from "./TestSupabase";
