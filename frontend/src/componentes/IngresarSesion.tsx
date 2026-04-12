@@ -2,28 +2,32 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import VistaAlumno from "./VistaAlumno";
 
-export default function IngresarSesion() {
-  const [nombre, setNombre] = useState("");
-  const [email, setEmail] = useState("");
-  const [codigoSesion, setCodigoSesion] = useState("");
-  const [entrar, setEntrar] = useState(false);
-  const [error, setError] = useState("");
-  const [cargando, setCargando] = useState(false);
-  const [alumnoId, setAlumnoId] = useState<string>("");
-  const [esperandoInicio, setEsperandoInicio] = useState(false);
-  const subscriptionRef = useRef<any>(null);
+interface SesionData {
+  codigo: string;
+  activa: boolean;
+  tiempo_limite: number | null;
+}
 
-  // Limpiar suscripción al desmontar
+export default function IngresarSesion() {
+  const [nombre, setNombre] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [codigoSesion, setCodigoSesion] = useState<string>("");
+  const [entrar, setEntrar] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const [cargando, setCargando] = useState<boolean>(false);
+  const [alumnoId, setAlumnoId] = useState<string>("");
+  const [esperandoInicio, setEsperandoInicio] = useState<boolean>(false);
+  const pollingRef = useRef<number | null>(null);
+
   useEffect(() => {
     return () => {
-      if (subscriptionRef.current) {
-        subscriptionRef.current.unsubscribe();
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
       }
     };
   }, []);
 
   const unirseASesion = async () => {
-    // Validaciones básicas
     if (!nombre.trim()) {
       setError("Ingresa tu nombre");
       return;
@@ -41,36 +45,38 @@ export default function IngresarSesion() {
     setError("");
 
     // 1. Verificar si la sesión existe
-    const { data: sesion, error: errorSesion } = await supabase
+    const { data, error: errorSesion } = await supabase
       .from("sesiones")
-      .select("codigo, estado, tiempo_limite")
+      .select("codigo, activa, tiempo_limite")
       .eq("codigo", codigoSesion.toUpperCase())
-      .single();
+      .maybeSingle();
 
-    if (errorSesion || !sesion) {
+    if (errorSesion) {
+      console.error("Error al verificar sesión:", errorSesion);
+      setError("Error al verificar la sesión");
+      setCargando(false);
+      return;
+    }
+
+    if (!data) {
       setError("Código de sesión inválido");
       setCargando(false);
       return;
     }
 
-    // 2. Verificar el estado de la sesión
-    if (sesion.estado === "finalizada") {
-      setError("Esta sesión ya finalizó.");
-      setCargando(false);
-      return;
-    }
+    const sesion = data as SesionData;
 
-    // 3. Verificar si el alumno ya está registrado
+    // 2. Verificar si el alumno ya está registrado
     const { data: alumnoExistente } = await supabase
       .from("alumnos")
       .select("id")
       .eq("sesion_codigo", codigoSesion.toUpperCase())
       .eq("email", email)
-      .single();
+      .maybeSingle();
 
-    let alumnoIdTemp = alumnoExistente?.id;
+    let alumnoIdTemp: string = alumnoExistente?.id || "";
 
-    // 4. Si no existe, registrar al alumno
+    // 3. Registrar al alumno SIEMPRE
     if (!alumnoIdTemp) {
       const { data: nuevoAlumno, error: errorAlumno } = await supabase
         .from("alumnos")
@@ -83,6 +89,7 @@ export default function IngresarSesion() {
         .single();
 
       if (errorAlumno) {
+        console.error("Error al registrar alumno:", errorAlumno);
         setError("Error al unirse a la sesión: " + errorAlumno.message);
         setCargando(false);
         return;
@@ -94,49 +101,70 @@ export default function IngresarSesion() {
     setAlumnoId(alumnoIdTemp);
     setCargando(false);
 
-    // 5. Si la sesión está activa, entrar directamente
-    if (sesion.estado === "activa") {
+    // 4. Si la sesión está activa, entrar directamente
+    if (sesion.activa === true) {
       setEntrar(true);
       return;
     }
 
-    // 6. Si está configurando, mostrar sala de espera y suscribirse
-    if (sesion.estado === "configurando") {
+    // 5. Si la sesión no está activa, mostrar sala de espera con POLLING
+    if (sesion.activa === false) {
       setEsperandoInicio(true);
       
-      // Suscribirse a cambios en la sesión
-      const channel = supabase
-        .channel(`sesion_${codigoSesion}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "UPDATE",
-            schema: "public",
-            table: "sesiones",
-            filter: `codigo=eq.${codigoSesion.toUpperCase()}`,
-          },
-          (payload) => {
-            console.log("Cambio en sesión:", payload.new.estado);
-            if (payload.new.estado === "activa") {
-              channel.unsubscribe();
-              setEntrar(true);
-            }
+      // POLLING: cada 1 segundo verificar si la sesión se activa
+      pollingRef.current = window.setInterval(async () => {
+        try {
+          const { data: estadoData, error: pollingError } = await supabase
+            .from("sesiones")
+            .select("activa")
+            .eq("codigo", codigoSesion.toUpperCase())
+            .maybeSingle();
+          
+          if (pollingError) {
+            console.error("Error en polling:", pollingError);
+            return;
           }
-        )
-        .subscribe();
+          
+          if (estadoData && estadoData.activa === true) {
+            console.log("¡Sesión activa detectada! Redirigiendo...");
+            if (pollingRef.current) {
+              clearInterval(pollingRef.current);
+            }
+            // IMPORTANTE: Cambiar ambos estados
+            setEsperandoInicio(false);
+            setEntrar(true);
+          }
+        } catch (err) {
+          console.error("Error en polling:", err);
+        }
+      }, 1000);
       
-      subscriptionRef.current = channel;
       return;
     }
   };
 
+  // Entrar al cuestionario (primera prioridad)
+  if (entrar && alumnoId) {
+    return (
+      <VistaAlumno
+        nombre={nombre}
+        email={email}
+        codigoSesion={codigoSesion.toUpperCase()}
+        alumnoId={alumnoId}
+      />
+    );
+  }
+
+  // Sala de espera
   if (esperandoInicio) {
     return (
       <div style={{ textAlign: "center", padding: "2rem" }}>
         <h2>⏳ Sala de espera</h2>
         <p><strong>{nombre}</strong>, ya estás registrado en la sesión.</p>
+        <p><strong>Código:</strong> {codigoSesion}</p>
+        <p><strong>Email:</strong> {email}</p>
         <p>El profesor <strong>iniciará el cuestionario en breve</strong>.</p>
-        <p>No cierres esta ventana.</p>
+        <p>No cierres esta ventana. Verificando cada 1 segundo...</p>
         <div style={{ marginTop: "20px" }}>
           <div className="spinner" style={{
             width: "40px",
@@ -158,17 +186,7 @@ export default function IngresarSesion() {
     );
   }
 
-  if (entrar) {
-    return (
-      <VistaAlumno
-        nombre={nombre}
-        email={email}
-        codigoSesion={codigoSesion.toUpperCase()}
-        alumnoId={alumnoId}
-      />
-    );
-  }
-
+  // Formulario de ingreso
   return (
     <div style={{ padding: "1rem" }}>
       <h2>Ingresar a sesión clínica</h2>

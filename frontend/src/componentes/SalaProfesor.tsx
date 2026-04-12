@@ -15,6 +15,12 @@ interface Alumno {
   joined_en: string;
 }
 
+interface Sesion {
+  activa: boolean;
+  activada_en: string | null;
+  tiempo_limite: number | null;
+}
+
 export default function SalaProfesor({
   codigoSesion,
   preguntas,
@@ -27,11 +33,10 @@ export default function SalaProfesor({
   const [cargando, setCargando] = useState(false);
   const [verificandoEstado, setVerificandoEstado] = useState(true);
   
-  // Refs para limpiar intervalos
-  const pollingRef = useRef<number | null>(null);
+  const pollingAlumnosRef = useRef<number | null>(null);
+  const pollingSesionRef = useRef<number | null>(null);
   const countdownRef = useRef<number | null>(null);
 
-  // Función para cargar alumnos desde Supabase
   const cargarAlumnos = async () => {
     const { data, error } = await supabase
       .from("alumnos")
@@ -45,28 +50,34 @@ export default function SalaProfesor({
     }
   };
 
-  // Verificar estado actual de la sesión al cargar
+  // Verificar estado de la sesión periódicamente
   useEffect(() => {
     const verificarEstadoSesion = async () => {
-      const { data: sesion } = await supabase
+      const { data, error } = await supabase
         .from("sesiones")
-        .select("estado, activada_en")
+        .select("activa, activada_en, tiempo_limite")
         .eq("codigo", codigoSesion)
-        .single();
+        .maybeSingle();
 
-      if (sesion?.estado === "activa") {
+      if (error) {
+        console.error("Error al verificar sesión:", error);
+        return;
+      }
+
+      const sesion = data as Sesion | null;
+
+      if (sesion?.activa === true && !sesionIniciada) {
         setSesionIniciada(true);
         
-        // Calcular tiempo restante si ya estaba activa
-        if (sesion.activada_en) {
+        if (sesion.activada_en && sesion.tiempo_limite) {
           const activadaEn = new Date(sesion.activada_en).getTime();
           const ahora = new Date().getTime();
           const segundosTranscurridos = Math.floor((ahora - activadaEn) / 1000);
-          const tiempoRestanteCalc = Math.max(0, (tiempo * 60) - segundosTranscurridos);
-          setTiempoRestante(tiempoRestanteCalc);
+          const restante = Math.max(0, sesion.tiempo_limite - segundosTranscurridos);
+          setTiempoRestante(restante);
           
-          if (tiempoRestanteCalc > 0) {
-            iniciarCountdown(tiempoRestanteCalc);
+          if (restante > 0) {
+            iniciarCountdown(restante);
           } else {
             finalizarSesion();
           }
@@ -78,41 +89,25 @@ export default function SalaProfesor({
 
     verificarEstadoSesion();
     
-    // Cargar alumnos inicialmente
     cargarAlumnos();
 
-    // POLLING: cada 1 segundo recargar la lista de alumnos
-    pollingRef.current = window.setInterval(() => {
+    // POLLING: cada 1 segundo recargar alumnos
+    pollingAlumnosRef.current = window.setInterval(() => {
       cargarAlumnos();
     }, 1000);
 
-    // Suscripción en tiempo real como respaldo (opcional)
-    const subscription = supabase
-      .channel(`sala_${codigoSesion}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "alumnos",
-          filter: `sesion_codigo=eq.${codigoSesion}`,
-        },
-        (payload) => {
-          const nuevoAlumno = payload.new as Alumno;
-          setAlumnos((prev) => [...prev, nuevoAlumno]);
-        }
-      )
-      .subscribe();
+    // POLLING: cada 2 segundos verificar estado de la sesión
+    pollingSesionRef.current = window.setInterval(() => {
+      verificarEstadoSesion();
+    }, 2000);
 
-    // Limpiar al desmontar
     return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-      subscription.unsubscribe();
+      if (pollingAlumnosRef.current) clearInterval(pollingAlumnosRef.current);
+      if (pollingSesionRef.current) clearInterval(pollingSesionRef.current);
     };
   }, [codigoSesion]);
 
   const iniciarCountdown = (tiempoInicial?: number) => {
-    // Limpiar countdown anterior si existe
     if (countdownRef.current) clearInterval(countdownRef.current);
     
     const segundosIniciales = tiempoInicial !== undefined ? tiempoInicial : tiempo * 60;
@@ -137,11 +132,11 @@ export default function SalaProfesor({
 
     setCargando(true);
 
-    // Actualizar estado de la sesión a "activa"
+    // Actualizar sesión a activa (usando booleano)
     const { error } = await supabase
       .from("sesiones")
       .update({
-        estado: "activa",
+        activa: true,
         activada_en: new Date().toISOString(),
       })
       .eq("codigo", codigoSesion);
@@ -164,7 +159,7 @@ export default function SalaProfesor({
     const { error } = await supabase
       .from("sesiones")
       .update({
-        estado: "finalizada",
+        activa: false,
         finalizada_en: new Date().toISOString(),
       })
       .eq("codigo", codigoSesion);
@@ -190,12 +185,8 @@ export default function SalaProfesor({
     <div style={{ padding: "1rem" }}>
       <h2>Sala del profesor</h2>
 
-      <p>
-        <strong>Código sesión:</strong> {codigoSesion}
-      </p>
-      <p>
-        <strong>Profesor:</strong> {profesorEmail}
-      </p>
+      <p><strong>Código sesión:</strong> {codigoSesion}</p>
+      <p><strong>Profesor:</strong> {profesorEmail}</p>
 
       {sesionIniciada ? (
         <div style={{ backgroundColor: "#e8f5e9", padding: "10px", borderRadius: "8px" }}>
@@ -206,18 +197,14 @@ export default function SalaProfesor({
         </div>
       ) : (
         <div>
-          <p>
-            <strong>Tiempo total:</strong> {tiempo} minutos
-          </p>
+          <p><strong>Tiempo total:</strong> {tiempo} minutos</p>
         </div>
       )}
 
       <h3>📋 Preguntas activas</h3>
       <ul>
         {preguntas.map((p, i) => (
-          <li key={i}>
-            {i + 1}. {p}
-          </li>
+          <li key={i}>{i + 1}. {p}</li>
         ))}
       </ul>
 
@@ -227,9 +214,7 @@ export default function SalaProfesor({
       ) : (
         <ul>
           {alumnos.map((alumno) => (
-            <li key={alumno.id}>
-              {alumno.nombre} - {alumno.email}
-            </li>
+            <li key={alumno.id}>{alumno.nombre} - {alumno.email}</li>
           ))}
         </ul>
       )}

@@ -15,9 +15,9 @@ interface Pregunta {
 }
 
 interface Sesion {
-  estado: string;
+  activa: boolean;
   activada_en: string | null;
-  tiempo_límite: number | null;
+  tiempo_limite: number | null;
 }
 
 export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: Props) {
@@ -35,7 +35,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
     const cargarDatosSesion = async () => {
       const { data, error } = await supabase
         .from("sesiones")
-        .select("estado, activada_en, tiempo_límite")
+        .select("activa, activada_en, tiempo_limite")
         .eq("codigo", codigoSesion)
         .maybeSingle();
 
@@ -48,17 +48,19 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
 
       const sesion = data as Sesion | null;
 
-      if (!sesion || sesion.estado !== "activa") {
+      // Verificar si la sesión está activa
+      if (!sesion || sesion.activa !== true) {
         setTiempoFinalizado(true);
         setCargando(false);
         return;
       }
 
-      if (sesion.activada_en && sesion.tiempo_límite) {
+      // Calcular tiempo restante
+      if (sesion.activada_en && sesion.tiempo_limite) {
         const activadaEn = new Date(sesion.activada_en).getTime();
         const ahora = new Date().getTime();
         const segundosTranscurridos = Math.floor((ahora - activadaEn) / 1000);
-        const restante = Math.max(0, sesion.tiempo_límite - segundosTranscurridos);
+        const restante = Math.max(0, sesion.tiempo_limite - segundosTranscurridos);
         setTiempoRestante(restante);
 
         if (restante <= 0) {
@@ -69,6 +71,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
         }
       }
 
+      // Obtener preguntas
       const { data: preguntasData, error: errorPreguntas } = await supabase
         .from("preguntas")
         .select("*")
@@ -90,10 +93,11 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
 
     cargarDatosSesion();
 
+    // POLLING: cada 1 segundo verificar estado de la sesión y tiempo
     pollingRef.current = window.setInterval(async () => {
       const { data, error } = await supabase
         .from("sesiones")
-        .select("estado, activada_en, tiempo_límite")
+        .select("activa, activada_en, tiempo_limite")
         .eq("codigo", codigoSesion)
         .maybeSingle();
 
@@ -104,18 +108,20 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
 
       const sesion = data as Sesion | null;
 
-      if (!sesion || sesion.estado !== "activa") {
+      // Si la sesión ya no está activa, finalizar
+      if (!sesion || sesion.activa !== true) {
         if (pollingRef.current) clearInterval(pollingRef.current);
         setTiempoFinalizado(true);
         guardarRespuestasEnBD();
         return;
       }
 
-      if (sesion.activada_en && sesion.tiempo_límite) {
+      // Calcular tiempo restante
+      if (sesion.activada_en && sesion.tiempo_limite) {
         const activadaEn = new Date(sesion.activada_en).getTime();
         const ahora = new Date().getTime();
         const segundosTranscurridos = Math.floor((ahora - activadaEn) / 1000);
-        const restante = Math.max(0, sesion.tiempo_límite - segundosTranscurridos);
+        const restante = Math.max(0, sesion.tiempo_limite - segundosTranscurridos);
         setTiempoRestante(restante);
 
         if (restante <= 0 && !tiempoFinalizado) {

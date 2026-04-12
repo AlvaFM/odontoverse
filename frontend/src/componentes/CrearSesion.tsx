@@ -24,12 +24,12 @@ export default function CrearSesion({ profesorEmail, onVolver }: Props) {
 
     const codigo = Math.random().toString(36).substring(2, 8).toUpperCase();
 
+    // Insertar nueva sesión usando 'activa' en lugar de 'estado'
     const { error: dbError } = await supabase.from("sesiones").insert([{
       codigo: codigo,
       profesor_email: profesorEmail,
-      estado: "configurando",
+      activa: false,  // false = sesión en configuración (no activa aún)
       creada_en: new Date().toISOString(),
-      activa: true
     }]);
 
     if (dbError) {
