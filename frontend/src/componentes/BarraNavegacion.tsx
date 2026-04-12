@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
+import logo from "../assets/img/logo.png";
 
 interface Props {
   onNavigate: (vista: string) => void;
   vistaActual: string;
 }
 
-export default function BarraNavegacion({ onNavigate, vistaActual }: Props) {
+export default function BarraNavegacion({ onNavigate }: Props) {
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
 
   const handleLogout = async () => {
@@ -17,99 +18,47 @@ export default function BarraNavegacion({ onNavigate, vistaActual }: Props) {
   };
 
   return (
-    <nav style={{
-      backgroundColor: "#2c3e50",
-      padding: "10px 20px",
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      flexWrap: "wrap",
-      gap: "10px",
-      boxShadow: "0 2px 5px rgba(0,0,0,0.2)"
-    }}>
-      <div style={{ display: "flex", gap: "15px", alignItems: "center", flexWrap: "wrap" }}>
-        <h1 style={{
-          color: "#ecf0f1",
-          fontSize: "20px",
-          margin: 0,
-          marginRight: "20px"
-        }}>
-          🦷 OdontoIA
-        </h1>
+    <nav
+      className="
+        fixed top-0 left-0 w-full z-50
+        flex items-center justify-end
+        px-6 py-5
+        backdrop-blur-md
+        bg-white/70
+        border-b border-white/30
+        shadow-[0_2px_10px_rgba(0,0,0,0.04)]
+        overflow-x-hidden
+      "
+    >
+      {/* LOGO CENTRADO */}
+      <button
+        onClick={() => onNavigate("seleccion")}
+        className="
+          absolute left-1/2 -translate-x-1/2
+          flex items-center justify-center
+          py-1
+          hover:opacity-80 transition
+        "
+      >
+        <img
+          src={logo}
+          alt="OdontoAI"
+          className="h-16 w-auto object-contain"
+        />
+      </button>
 
-        <button
-          onClick={() => onNavigate("ingresar")}
-          style={{
-            backgroundColor: vistaActual === "ingresar" ? "#e67e22" : "#3498db",
-            color: "white",
-            border: "none",
-            padding: "8px 16px",
-            borderRadius: "5px",
-            cursor: "pointer",
-            fontWeight: "bold",
-            transition: "all 0.3s"
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#2980b9"}
-          onMouseLeave={(e) => {
-            if (vistaActual !== "ingresar") e.currentTarget.style.backgroundColor = "#3498db";
-          }}
-        >
-          🧑‍🎓 Alumno
-        </button>
-
-        <button
-          onClick={() => onNavigate("login")}
-          style={{
-            backgroundColor: vistaActual === "login" ? "#e67e22" : "#2ecc71",
-            color: "white",
-            border: "none",
-            padding: "8px 16px",
-            borderRadius: "5px",
-            cursor: "pointer",
-            fontWeight: "bold",
-            transition: "all 0.3s"
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#27ae60"}
-          onMouseLeave={(e) => {
-            if (vistaActual !== "login") e.currentTarget.style.backgroundColor = "#2ecc71";
-          }}
-        >
-          👨‍🏫 Profesor
-        </button>
-
-        <button
-          onClick={() => onNavigate("seleccion")}
-          style={{
-            backgroundColor: vistaActual === "seleccion" ? "#e67e22" : "#95a5a6",
-            color: "white",
-            border: "none",
-            padding: "8px 16px",
-            borderRadius: "5px",
-            cursor: "pointer",
-            fontWeight: "bold"
-          }}
-        >
-          🏠 Inicio
-        </button>
-      </div>
-
+      {/* LOGOUT */}
       <button
         onClick={handleLogout}
         disabled={cerrandoSesion}
-        style={{
-          backgroundColor: "#e74c3c",
-          color: "white",
-          border: "none",
-          padding: "8px 16px",
-          borderRadius: "5px",
-          cursor: "pointer",
-          fontWeight: "bold",
-          transition: "all 0.3s"
-        }}
-        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#c0392b"}
-        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#e74c3c"}
+        className="
+          px-4 py-2 rounded-lg text-sm font-medium
+          bg-[#fbe9e9]/80 text-red-500
+          hover:bg-red-100 hover:text-red-600
+          transition-all duration-200
+        "
       >
-        {cerrandoSesion ? "Cerrando..." : "🚪 Cerrar sesión"}
+        {cerrandoSesion ? "Cerrando..." : "Cerrar sesión"}
       </button>
     </nav>
   );
