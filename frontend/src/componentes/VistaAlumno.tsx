@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
 interface Props {
@@ -14,52 +14,73 @@ interface Pregunta {
   orden: number;
 }
 
-export default function VistaAlumno({
-  nombre,
-  email,
-  codigoSesion,
-  alumnoId,
-}: Props) {
-  const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
-  const [indicePregunta, setIndicePregunta] = useState(0);
-  const [respuestas, setRespuestas] = useState<{ [preguntaId: string]: string }>({});
-  const [tiempo, setTiempo] = useState<number | null>(null);
-  const [tiempoFinalizado, setTiempoFinalizado] = useState(false);
-  const [enviando, setEnviando] = useState(false);
-  const [enviado, setEnviado] = useState(false);
-  const [cargando, setCargando] = useState(true);
-  const [sesionAunActiva, setSesionAunActiva] = useState(true);
+interface Sesion {
+  estado: string;
+  activada_en: string | null;
+  tiempo_límite: number | null;
+}
 
-  // Cargar preguntas y tiempo de la sesión
+export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: Props) {
+  const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
+  const [indicePregunta, setIndicePregunta] = useState<number>(0);
+  const [respuestas, setRespuestas] = useState<{ [preguntaId: string]: string }>({});
+  const [tiempoRestante, setTiempoRestante] = useState<number | null>(null);
+  const [tiempoFinalizado, setTiempoFinalizado] = useState<boolean>(false);
+  const [enviando, setEnviando] = useState<boolean>(false);
+  const [enviado, setEnviado] = useState<boolean>(false);
+  const [cargando, setCargando] = useState<boolean>(true);
+  const pollingRef = useRef<number | null>(null);
+
   useEffect(() => {
     const cargarDatosSesion = async () => {
-      // Obtener tiempo límite de la sesión
-      const { data: sesion } = await supabase
+      const { data, error } = await supabase
         .from("sesiones")
-        .select("tiempo_limite, estado")
+        .select("estado, activada_en, tiempo_límite")
         .eq("codigo", codigoSesion)
-        .single();
+        .maybeSingle();
 
-      if (!sesion || sesion.estado !== "activa") {
-        setSesionAunActiva(false);
+      if (error) {
+        console.error("Error al cargar sesión:", error);
         setTiempoFinalizado(true);
         setCargando(false);
         return;
       }
 
-      if (sesion?.tiempo_limite) {
-        setTiempo(sesion.tiempo_limite);
+      const sesion = data as Sesion | null;
+
+      if (!sesion || sesion.estado !== "activa") {
+        setTiempoFinalizado(true);
+        setCargando(false);
+        return;
       }
 
-      // Obtener preguntas
-      const { data: preguntasData } = await supabase
+      if (sesion.activada_en && sesion.tiempo_límite) {
+        const activadaEn = new Date(sesion.activada_en).getTime();
+        const ahora = new Date().getTime();
+        const segundosTranscurridos = Math.floor((ahora - activadaEn) / 1000);
+        const restante = Math.max(0, sesion.tiempo_límite - segundosTranscurridos);
+        setTiempoRestante(restante);
+
+        if (restante <= 0) {
+          setTiempoFinalizado(true);
+          guardarRespuestasEnBD();
+          setCargando(false);
+          return;
+        }
+      }
+
+      const { data: preguntasData, error: errorPreguntas } = await supabase
         .from("preguntas")
         .select("*")
         .eq("sesion_codigo", codigoSesion)
         .order("orden", { ascending: true });
 
+      if (errorPreguntas) {
+        console.error("Error al cargar preguntas:", errorPreguntas);
+      }
+
       if (preguntasData && preguntasData.length > 0) {
-        setPreguntas(preguntasData);
+        setPreguntas(preguntasData as Pregunta[]);
       } else {
         setTiempoFinalizado(true);
       }
@@ -69,40 +90,45 @@ export default function VistaAlumno({
 
     cargarDatosSesion();
 
-    // Verificar periódicamente si la sesión sigue activa
-    const interval = setInterval(async () => {
-      const { data: sesion } = await supabase
+    pollingRef.current = window.setInterval(async () => {
+      const { data, error } = await supabase
         .from("sesiones")
-        .select("estado")
+        .select("estado, activada_en, tiempo_límite")
         .eq("codigo", codigoSesion)
-        .single();
-      
-      if (sesion?.estado !== "activa") {
-        setSesionAunActiva(false);
-        setTiempoFinalizado(true);
-        clearInterval(interval);
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error en polling:", error);
+        return;
       }
-    }, 5000);
 
-    return () => clearInterval(interval);
-  }, [codigoSesion]);
+      const sesion = data as Sesion | null;
 
-  // Timer
-  useEffect(() => {
-    if (tiempo === null || tiempo <= 0 || !sesionAunActiva) return;
+      if (!sesion || sesion.estado !== "activa") {
+        if (pollingRef.current) clearInterval(pollingRef.current);
+        setTiempoFinalizado(true);
+        guardarRespuestasEnBD();
+        return;
+      }
 
-    if (tiempo <= 0) {
-      setTiempoFinalizado(true);
-      guardarRespuestasEnBD();
-      return;
-    }
+      if (sesion.activada_en && sesion.tiempo_límite) {
+        const activadaEn = new Date(sesion.activada_en).getTime();
+        const ahora = new Date().getTime();
+        const segundosTranscurridos = Math.floor((ahora - activadaEn) / 1000);
+        const restante = Math.max(0, sesion.tiempo_límite - segundosTranscurridos);
+        setTiempoRestante(restante);
 
-    const intervalo = setInterval(() => {
-      setTiempo((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
+        if (restante <= 0 && !tiempoFinalizado) {
+          setTiempoFinalizado(true);
+          guardarRespuestasEnBD();
+        }
+      }
     }, 1000);
 
-    return () => clearInterval(intervalo);
-  }, [tiempo, sesionAunActiva]);
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [codigoSesion]);
 
   const guardarRespuestasEnBD = async () => {
     if (enviado) return;
@@ -142,6 +168,7 @@ export default function VistaAlumno({
   const enviarRespuestas = async () => {
     await guardarRespuestasEnBD();
     setTiempoFinalizado(true);
+    if (pollingRef.current) clearInterval(pollingRef.current);
   };
 
   const formatearTiempo = (segundos: number) => {
@@ -173,10 +200,10 @@ export default function VistaAlumno({
     );
   }
 
-  if (tiempoFinalizado || enviado || !sesionAunActiva) {
+  if (tiempoFinalizado || enviado) {
     return (
       <div style={{ textAlign: "center", padding: "2rem" }}>
-        <h2>⏰ {!sesionAunActiva ? "Sesión finalizada" : "Tiempo finalizado"}</h2>
+        <h2>⏰ Tiempo finalizado</h2>
         <p>Gracias por participar, {nombre}.</p>
         <p>Tus respuestas han sido enviadas al profesor.</p>
         <p>Los resultados te llegarán a: <strong>{email}</strong></p>
@@ -217,7 +244,7 @@ export default function VistaAlumno({
         fontSize: "28px",
         fontWeight: "bold"
       }}>
-        ⏱️ Tiempo restante: {formatearTiempo(tiempo || 0)}
+        ⏱️ Tiempo restante: {tiempoRestante !== null ? formatearTiempo(tiempoRestante) : "Calculando..."}
       </div>
 
       <hr />
