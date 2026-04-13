@@ -5,9 +5,10 @@ import ConfirmarDiagnostico from "./ConfirmarDiagnostico";
 interface Props {
   codigoSesion: string;
   profesorEmail: string;
+  onVolver: () => void;
 }
 
-export default function SubirCaso({ codigoSesion, profesorEmail }: Props) {
+export default function SubirCaso({ codigoSesion, profesorEmail, onVolver }: Props) {
   const [imagen, setImagen] = useState<File | null>(null);
   const [diagnostico, setDiagnostico] = useState("");
   const [confianza, setConfianza] = useState(0);
@@ -22,7 +23,6 @@ export default function SubirCaso({ codigoSesion, profesorEmail }: Props) {
     setSubiendo(true);
     setError("");
 
-    // 1. Llamar al modelo ML
     const formData = new FormData();
     formData.append("file", imagen);
 
@@ -45,10 +45,9 @@ export default function SubirCaso({ codigoSesion, profesorEmail }: Props) {
       data.porcentaje ||
       0;
 
-    // 2. Guardar SOLO el diagnóstico en Supabase (sin imagen)
     const { error: dbError } = await supabase.from("casos_clinicos").insert([{
       sesion_codigo: codigoSesion,
-      imagen_url: "pendiente",  // Temporal, después se actualizará
+      imagen_url: "pendiente",
       diagnostico_ml: diagnosticoReal,
       diagnostico_aprobado: false,
     }]);
@@ -73,46 +72,71 @@ export default function SubirCaso({ codigoSesion, profesorEmail }: Props) {
         diagnostico={diagnostico}
         confianza={confianza}
         profesorEmail={profesorEmail}
+        onVolver={onVolver}
       />
     );
   }
 
   return (
-    <div>
-      <h2>Subir imagen clínica</h2>
-      <p><strong>Sesión:</strong> {codigoSesion}</p>
-
-      <input
-        type="file"
-        accept="image/*"
-        onChange={(e) => {
-          if (e.target.files) {
-            setImagen(e.target.files[0]);
-          }
-        }}
-      />
-
-      <br /><br />
-
-      <button onClick={enviarImagen} disabled={subiendo || !imagen}>
-        {subiendo ? "Analizando..." : "🔍 Analizar imagen"}
-      </button>
-
-      {error && <p style={{ color: "red" }}>{error}</p>}
-
-      {analizado && (
-        <>
-          <hr />
-          <h3>✅ Resultado del análisis</h3>
-          <p><strong>Diagnóstico del modelo:</strong> {diagnostico}</p>
-          <p><strong>Confianza:</strong> {confianza}%</p>
-
-          <button onClick={() => setContinuar(true)}>
-            Confirmar diagnóstico
+    <div className="min-h-screen flex items-center justify-center bg-[#f7fbfd] px-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-8">
+        
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-[#1e3a5f]">Subir imagen clínica</h2>
+          <button
+            onClick={onVolver}
+            className="text-sm bg-slate-200 hover:bg-slate-300 px-3 py-1 rounded-lg transition"
+          >
+            ← Volver
           </button>
-        </>
-      )}
+        </div>
+
+        <p className="text-slate-600 mb-4">
+          <span className="font-medium">Sesión:</span> {codigoSesion}
+        </p>
+
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            if (e.target.files) {
+              setImagen(e.target.files[0]);
+            }
+          }}
+          className="w-full px-4 py-2 rounded-xl bg-[#f7fbfd] border border-[#cfeaf6] mb-4"
+        />
+
+        <button
+          onClick={enviarImagen}
+          disabled={subiendo || !imagen}
+          className="w-full py-3 rounded-xl bg-[#9ecbff] text-[#1e3a5f] hover:bg-[#81b0d6] transition disabled:opacity-50"
+        >
+          {subiendo ? "Analizando..." : "🔍 Analizar imagen"}
+        </button>
+
+        {error && <p className="text-red-500 mt-3 text-sm text-center">{error}</p>}
+
+        {analizado && (
+          <div className="mt-6 text-center space-y-3">
+            <div className="bg-[#f0f8ff] rounded-xl p-4">
+              <p className="text-sm text-slate-500">Diagnóstico del modelo</p>
+              <p className="font-semibold text-[#1e3a5f]">{diagnostico}</p>
+            </div>
+
+            <div className="bg-[#f0f8ff] rounded-xl p-4">
+              <p className="text-sm text-slate-500">Confianza</p>
+              <p className="font-semibold text-[#1e3a5f]">{confianza}%</p>
+            </div>
+
+            <button
+              onClick={() => setContinuar(true)}
+              className="w-full py-3 rounded-xl bg-[#cfeaf6] text-[#1e3a5f] hover:bg-[#b9e0f2] transition"
+            >
+              Confirmar diagnóstico
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-

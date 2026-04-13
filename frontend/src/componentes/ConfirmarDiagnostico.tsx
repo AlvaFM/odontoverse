@@ -7,6 +7,7 @@ interface Props {
   diagnostico: string;
   confianza: number;
   profesorEmail: string;
+  onVolver: () => void;
 }
 
 export default function ConfirmarDiagnostico({
@@ -14,6 +15,7 @@ export default function ConfirmarDiagnostico({
   diagnostico,
   confianza,
   profesorEmail,
+  onVolver,
 }: Props) {
   const [continuar, setContinuar] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -44,6 +46,7 @@ export default function ConfirmarDiagnostico({
         codigoSesion={codigoSesion}
         diagnostico={diagnostico}
         profesorEmail={profesorEmail}
+        onVolver={onVolver}
       />
     );
   }
@@ -53,47 +56,37 @@ export default function ConfirmarDiagnostico({
       
       <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-8">
 
-        {/* HEADER */}
-        <h2 className="text-xl font-semibold text-[#1e3a5f] text-center mb-6">
-          Confirmar diagnóstico
-        </h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-[#1e3a5f]">Confirmar diagnóstico</h2>
+          <button
+            onClick={onVolver}
+            className="text-sm bg-slate-200 hover:bg-slate-300 px-3 py-1 rounded-lg transition"
+          >
+            ← Volver
+          </button>
+        </div>
 
-        {/* SESIÓN */}
         <div className="bg-[#f0f8ff] rounded-xl p-3 mb-5 text-center">
           <p className="text-sm text-slate-500">Sesión activa</p>
           <p className="font-semibold text-[#1e3a5f]">{codigoSesion}</p>
         </div>
 
-        {/* DIAGNÓSTICO */}
         <div className="space-y-3 mb-6">
-
           <div className="bg-[#f0f8ff] rounded-xl p-4 text-center">
             <p className="text-sm text-slate-500">Diagnóstico IA</p>
-            <p className="font-semibold text-[#1e3a5f]">
-              {diagnostico}
-            </p>
+            <p className="font-semibold text-[#1e3a5f]">{diagnostico}</p>
           </div>
 
           <div className="bg-[#f0f8ff] rounded-xl p-4 text-center">
             <p className="text-sm text-slate-500">Confianza</p>
-            <p className="font-semibold text-[#1e3a5f]">
-              {confianza}%
-            </p>
+            <p className="font-semibold text-[#1e3a5f]">{confianza}%</p>
           </div>
-
         </div>
 
-        {/* BOTÓN */}
         <button
           onClick={aprobarDiagnostico}
           disabled={guardando}
-          className="
-            w-full py-3 rounded-xl text-sm font-medium
-            bg-[#9ecbff] text-[#1e3a5f]
-            hover:bg-[#81b0d6]
-            transition-all duration-200
-            disabled:opacity-50
-          "
+          className="w-full py-3 rounded-xl text-sm font-medium bg-[#9ecbff] text-[#1e3a5f] hover:bg-[#81b0d6] transition-all duration-200 disabled:opacity-50"
         >
           {guardando ? "Guardando..." : "Aprobar y continuar"}
         </button>

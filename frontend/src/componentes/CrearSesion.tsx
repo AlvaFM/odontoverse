@@ -1,219 +1,76 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
-import ConfirmarDiagnostico from "./ConfirmarDiagnostico";
-
-import lupaImg from "../assets/img/dientelupa.png";
+import SubirCaso from "./SubirCaso";
 
 interface Props {
-  codigoSesion: string;
-  profesorEmail: string;
+  profesorEmail: string | null;
   onVolver: () => void;
 }
 
-export default function CrearSesion({ codigoSesion, profesorEmail }: Props) {
-  const [imagen, setImagen] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-
-  const [diagnostico, setDiagnostico] = useState("");
-  const [confianza, setConfianza] = useState(0);
-
-  const [faseIA, setFaseIA] = useState(false);
-  const [analizando, setAnalizando] = useState(false);
-
+export default function CrearSesion({ profesorEmail, onVolver }: Props) {
+  const [codigoSesion, setCodigoSesion] = useState("");
   const [continuar, setContinuar] = useState(false);
+  const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
 
-  const handleFile = (file: File) => {
-    setImagen(file);
-    setPreview(URL.createObjectURL(file));
-  };
+  const generarCodigo = async () => {
+    if (!profesorEmail) {
+      setError("No hay sesión de profesor activa");
+      return;
+    }
 
-  const enviarImagen = async () => {
-    if (!imagen) return;
-
+    setCargando(true);
     setError("");
-    setFaseIA(true);
-    setAnalizando(true);
 
-    setTimeout(async () => {
-      try {
-        const formData = new FormData();
-        formData.append("file", imagen);
+    const codigo = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-        const res = await fetch("http://127.0.0.1:8000/predict/", {
-          method: "POST",
-          body: formData,
-        });
+    const { error: dbError } = await supabase.from("sesiones").insert([{
+      codigo: codigo,
+      profesor_email: profesorEmail,
+      activa: false,
+      creada_en: new Date().toISOString(),
+    }]);
 
-        const data = await res.json();
-
-        const diagnosticoReal =
-          data.prediction || data.diagnostico || "No disponible";
-
-        const confianzaReal =
-          data.confidence || data.confianza || 0;
-
-        await supabase.from("casos_clinicos").insert([
-          {
-            sesion_codigo: codigoSesion,
-            imagen_url: "pendiente",
-            diagnostico_ml: diagnosticoReal,
-            diagnostico_aprobado: false,
-          },
-        ]);
-
-        setDiagnostico(diagnosticoReal);
-        setConfianza(confianzaReal);
-
-        setFaseIA(false);
-        setAnalizando(false);
-      } catch (e) {
-        setError("Error en el análisis");
-        setFaseIA(false);
-        setAnalizando(false);
-      }
-    }, 2000);
+    if (dbError) {
+      console.error("Error al guardar:", dbError);
+      setError("Error al crear la sesión: " + dbError.message);
+      setCargando(false);
+      return;
+    }
+    
+    setCodigoSesion(codigo);
+    setCargando(false);
   };
 
   if (continuar) {
-    return (
-      <ConfirmarDiagnostico
-        codigoSesion={codigoSesion}
-        diagnostico={diagnostico}
-        confianza={confianza}
-        profesorEmail={profesorEmail}
-      />
-    );
+    return <SubirCaso codigoSesion={codigoSesion} profesorEmail={profesorEmail || ""} onVolver={onVolver} />;
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f7fbfd] px-4">
-
       <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-8">
-
-        {/* TITULO */}
-        <h2 className="text-xl font-semibold text-[#1e3a5f] text-center mb-6">
-          Subir caso clínico
-        </h2>
-
-        {/* SESIÓN */}
-        <div className="bg-[#f0f8ff] rounded-xl p-3 mb-5 text-center">
-          <p className="text-sm text-slate-500">Sesión activa</p>
-          <p className="font-semibold text-[#1e3a5f]">{codigoSesion}</p>
+        
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-[#1e3a5f]">Crear sesión clínica</h2>
+          <button onClick={onVolver} className="text-sm bg-slate-200 hover:bg-slate-300 px-3 py-1 rounded-lg transition">← Volver</button>
         </div>
 
-        {/* UPLOAD */}
-        <label className="flex flex-col items-center justify-center border-2 border-dashed border-[#9ecbff] rounded-2xl p-6 cursor-pointer bg-[#f7fbfd] hover:bg-[#eef7ff] transition">
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFile(file);
-            }}
-          />
+        <p className="text-slate-600 mb-4"><span className="font-medium">Profesor:</span> {profesorEmail}</p>
 
-          <p className="text-sm text-slate-500">
-            Selecciona la imagen para analizar
-          </p>
-        </label>
-
-        {/* 🧠 LUPA CON RX CIRCULAR */}
-        {faseIA && (
-          <div className="mt-6 flex justify-center">
-            
-            <div className="lupa-container">
-              <img src={lupaImg} className="w-32 h-32 object-contain" />
-
-              {/* RX SOLO DENTRO DEL CÍRCULO */}
-              <div className="rx-circle" />
-            </div>
-          </div>
-        )}
-
-        {/* 🦷 RESULTADO IMAGEN */}
-        {preview && !faseIA && (
-          <div className="mt-6 relative overflow-hidden rounded-xl">
-            <img src={preview} className="w-full rounded-xl" />
-          </div>
-        )}
-
-        {/* BOTÓN */}
-        <button
-          onClick={enviarImagen}
-          disabled={!imagen || analizando}
-          className="mt-5 w-full py-3 rounded-xl bg-[#9ecbff] text-[#1e3a5f] hover:bg-[#81b0d6] transition disabled:opacity-50"
-        >
-          {analizando ? "Analizando..." : "Analizar imagen"}
+        <button onClick={generarCodigo} disabled={cargando} className="w-full py-3 rounded-xl bg-[#9ecbff] text-[#1e3a5f] hover:bg-[#81b0d6] transition disabled:opacity-50">
+          {cargando ? "Generando..." : "Generar código"}
         </button>
 
-        {error && (
-          <p className="mt-3 text-red-500 text-center">{error}</p>
-        )}
+        {error && <p className="text-red-500 mt-3 text-sm text-center">{error}</p>}
 
-        {/* RESULTADO */}
-        {!analizando && diagnostico && (
-          <div className="mt-6 text-center space-y-3">
-
-            <div className="bg-[#f0f8ff] p-4 rounded-xl">
-              <p className="text-sm text-slate-500">Diagnóstico IA</p>
-              <p className="font-semibold text-[#1e3a5f]">{diagnostico}</p>
-            </div>
-
-            <div className="bg-[#f0f8ff] p-4 rounded-xl">
-              <p className="text-sm text-slate-500">Confianza</p>
-              <p className="font-semibold text-[#1e3a5f]">{confianza}%</p>
-            </div>
-
-            <button
-              onClick={() => setContinuar(true)}
-              className="w-full py-3 rounded-xl bg-[#cfeaf6] text-[#1e3a5f] hover:bg-[#b9e0f2] transition"
-            >
-              Confirmar diagnóstico
-            </button>
+        {codigoSesion && (
+          <div className="mt-5 text-center">
+            <p className="text-slate-700"><span className="font-medium">Código sesión:</span></p>
+            <p className="text-2xl font-bold tracking-widest text-[#1e3a5f] mt-1">{codigoSesion}</p>
+            <button onClick={() => setContinuar(true)} className="mt-4 w-full py-3 rounded-xl bg-[#cfeaf6] text-[#1e3a5f] hover:bg-[#b9e0f2] transition">Continuar</button>
           </div>
         )}
       </div>
-
-      {/* 🎯 ESTILOS RX CIRCULAR */}
-      <style>
-        {`
-          .lupa-container {
-            position: relative;
-            width: 130px;
-            height: 130px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-
-          .rx-circle {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            overflow: hidden;
-          }
-
-          .rx-circle::before {
-            content: "";
-            position: absolute;
-            width: 200%;
-            height: 3px;
-            background: rgba(158, 203, 255, 0.9);
-            top: 0;
-            left: -50%;
-            animation: scanCircle 1.2s linear infinite;
-            box-shadow: 0 0 10px rgba(158,203,255,0.8);
-          }
-
-          @keyframes scanCircle {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(130px); }
-          }
-        `}
-      </style>
     </div>
   );
 }
