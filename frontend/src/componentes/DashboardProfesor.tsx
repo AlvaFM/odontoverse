@@ -4,11 +4,12 @@ import CrearSesion from "./CrearSesion";
 import VerSesionesPrevias from "./VerSesionesPrevias";
 
 interface Props {
+  codigoSesion: string;
   profesorEmail: string;
   onLogout: () => void;
 }
 
-export default function DashboardProfesor({ profesorEmail, onLogout }: Props) {
+export default function DashboardProfesor({ codigoSesion, profesorEmail, onLogout }: Props) {
   const [vista, setVista] = useState<"dashboard" | "crear" | "ver">("dashboard");
   const [cantidadSesiones, setCantidadSesiones] = useState(0);
 
@@ -26,7 +27,7 @@ export default function DashboardProfesor({ profesorEmail, onLogout }: Props) {
   };
 
   if (vista === "crear") {
-    return <CrearSesion profesorEmail={profesorEmail} onVolver={() => setVista("dashboard")} />;
+    return <CrearSesion codigoSesion={codigoSesion} profesorEmail={profesorEmail} onVolver={() => setVista("dashboard")} />;
   }
 
   if (vista === "ver") {

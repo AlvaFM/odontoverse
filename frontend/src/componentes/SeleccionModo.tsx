@@ -63,6 +63,7 @@ export default function SeleccionModo() {
       <CrearSesion
         profesorEmail={profesorEmail}
         onVolver={handleLogout}
+        codigoSesion=""
       />
     );
   }

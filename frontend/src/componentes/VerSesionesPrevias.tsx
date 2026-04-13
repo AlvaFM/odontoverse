@@ -31,7 +31,9 @@ export default function VerSesionesPrevias({ profesorEmail, onVolver }: Props) {
       .eq("profesor_email", profesorEmail)
       .order("creada_en", { ascending: false });
 
-    if (data) {
+    if (error) {
+      console.error("Error cargando sesiones:", error);
+    } else if (data) {
       setSesiones(data);
     }
     setCargando(false);

@@ -4,7 +4,6 @@ import logo from "../assets/img/logo.png";
 
 interface Props {
   onNavigate: (vista: string) => void;
-  vistaActual: string;
 }
 
 export default function BarraNavegacion({ onNavigate }: Props) {
@@ -20,23 +19,21 @@ export default function BarraNavegacion({ onNavigate }: Props) {
   return (
     <nav
       className="
-        fixed top-0 left-0 w-full z-50
+        sticky top-0 w-full z-50 relative
         flex items-center justify-end
         px-6 py-5
         backdrop-blur-md
         bg-white/70
         border-b border-white/30
         shadow-[0_2px_10px_rgba(0,0,0,0.04)]
-        overflow-x-hidden
       "
     >
-      {/* LOGO CENTRADO */}
+      {/* LOGO = VOLVER A SELECCIÓN */}
       <button
         onClick={() => onNavigate("seleccion")}
         className="
-          absolute left-1/2 -translate-x-1/2
-          flex items-center justify-center
-          py-1
+          absolute left-1/2 top-1/2
+          -translate-x-1/2 -translate-y-1/2
           hover:opacity-80 transition
         "
       >

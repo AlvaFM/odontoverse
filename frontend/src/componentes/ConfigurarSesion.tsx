@@ -104,47 +104,93 @@ export default function ConfigurarSesion({
   }
 
   return (
-    <div style={{ padding: "1rem" }}>
-      <h2>Configurar sesión clínica</h2>
+  <div className="min-h-screen flex items-center justify-center bg-[#f7fbfd] px-4">
 
-      <p><strong>Sesión:</strong> {codigoSesion}</p>
-      <p><strong>Diagnóstico confirmado:</strong> {diagnostico}</p>
+    <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-8">
 
-      <h3>Tiempo para alumnos (minutos)</h3>
-      <input
-        type="number"
-        min="1"
-        value={tiempo}
-        onChange={(e) => setTiempo(Number(e.target.value))}
-        style={{ width: "80px", padding: "5px" }}
-      />
+      {/* HEADER */}
+      <h2 className="text-xl font-semibold text-[#1e3a5f] text-center mb-6">
+        Configurar sesión clínica
+      </h2>
 
-      <h3>Preguntas clínicas</h3>
-      <p>Las respuestas de los alumnos serán de texto libre</p>
+      {/* INFO */}
+      <div className="bg-[#f0f8ff] rounded-xl p-3 mb-4 text-center">
+        <p className="text-sm text-slate-500">Sesión activa</p>
+        <p className="font-semibold text-[#1e3a5f]">{codigoSesion}</p>
+      </div>
 
-      {preguntas.map((pregunta, index) => (
-        <div key={index}>
-          <input
-            type="text"
-            placeholder={`Pregunta ${index + 1}`}
-            value={pregunta}
-            onChange={(e) => actualizarPregunta(index, e.target.value)}
-            style={{ width: "300px", margin: "5px", padding: "5px" }}
-          />
+      <div className="bg-[#f0f8ff] rounded-xl p-3 mb-6 text-center">
+        <p className="text-sm text-slate-500">Diagnóstico IA</p>
+        <p className="font-semibold text-[#1e3a5f]">{diagnostico}</p>
+      </div>
+
+      {/* TIEMPO */}
+      <div className="mb-6">
+        <p className="text-sm text-slate-600 mb-2">Tiempo (minutos)</p>
+
+        <input
+          type="number"
+          min="1"
+          value={tiempo}
+          onChange={(e) => setTiempo(Number(e.target.value))}
+          className="w-full px-4 py-2 rounded-xl bg-[#f7fbfd] border border-[#cfeaf6]
+                     focus:outline-none focus:ring-2 focus:ring-[#9ecbff]"
+        />
+      </div>
+
+      {/* PREGUNTAS */}
+      <div className="mb-4">
+        <p className="text-sm text-slate-600 mb-2">Preguntas clínicas</p>
+
+        <p className="text-xs text-slate-400 mb-3">
+          Respuesta libre de los alumnos
+        </p>
+
+        <div className="space-y-2">
+          {preguntas.map((pregunta, index) => (
+            <input
+              key={index}
+              type="text"
+              placeholder={`Pregunta ${index + 1}`}
+              value={pregunta}
+              onChange={(e) => actualizarPregunta(index, e.target.value)}
+              className="w-full px-4 py-2 rounded-xl bg-[#f7fbfd] border border-[#cfeaf6]
+                         focus:outline-none focus:ring-2 focus:ring-[#9ecbff]"
+            />
+          ))}
         </div>
-      ))}
 
-      <button onClick={agregarPregunta}>
-        + Agregar pregunta
+        <button
+          onClick={agregarPregunta}
+          className="mt-3 text-sm text-[#1e3a5f] hover:text-[#81b0d6] transition"
+        >
+          + Agregar pregunta
+        </button>
+      </div>
+
+      {/* ERROR */}
+      {error && (
+        <p className="text-red-500 text-sm text-center mb-4">
+          {error}
+        </p>
+      )}
+
+      {/* BOTÓN */}
+      <button
+        onClick={guardarConfiguracion}
+        disabled={guardando}
+        className="
+          w-full py-3 rounded-xl text-sm font-medium
+          bg-[#9ecbff] text-[#1e3a5f]
+          hover:bg-[#81b0d6]
+          transition
+          disabled:opacity-50
+        "
+      >
+        {guardando ? "Guardando..." : "Abrir sala"}
       </button>
 
-      <br /><br />
-
-      {error && <p style={{ color: "red" }}>{error}</p>}
-
-      <button onClick={guardarConfiguracion} disabled={guardando}>
-        {guardando ? "Guardando..." : "🚀 Abrir sala"}
-      </button>
     </div>
-  );
+  </div>
+);
 }

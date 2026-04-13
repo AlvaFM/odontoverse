@@ -32,108 +32,83 @@ export default function SalaProfesor({
   const [tiempoRestante, setTiempoRestante] = useState(tiempo * 60);
   const [cargando, setCargando] = useState(false);
   const [verificandoEstado, setVerificandoEstado] = useState(true);
-  
+
   const pollingAlumnosRef = useRef<number | null>(null);
   const pollingSesionRef = useRef<number | null>(null);
   const countdownRef = useRef<number | null>(null);
 
   const cargarAlumnos = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("alumnos")
       .select("*")
       .eq("sesion_codigo", codigoSesion);
 
-    if (error) {
-      console.error("Error al cargar alumnos:", error);
-    } else if (data) {
-      setAlumnos(data as Alumno[]);
-    }
+    if (data) setAlumnos(data as Alumno[]);
   };
 
-  // Verificar estado de la sesión periódicamente
   useEffect(() => {
     const verificarEstadoSesion = async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("sesiones")
         .select("activa, activada_en, tiempo_limite")
         .eq("codigo", codigoSesion)
         .maybeSingle();
 
-      if (error) {
-        console.error("Error al verificar sesión:", error);
-        return;
-      }
-
       const sesion = data as Sesion | null;
 
-      if (sesion?.activa === true && !sesionIniciada) {
+      if (sesion?.activa && !sesionIniciada) {
         setSesionIniciada(true);
-        
+
         if (sesion.activada_en && sesion.tiempo_limite) {
-          const activadaEn = new Date(sesion.activada_en).getTime();
-          const ahora = new Date().getTime();
-          const segundosTranscurridos = Math.floor((ahora - activadaEn) / 1000);
-          const restante = Math.max(0, sesion.tiempo_limite - segundosTranscurridos);
+          const inicio = new Date(sesion.activada_en).getTime();
+          const ahora = Date.now();
+          const restante = Math.max(
+            0,
+            sesion.tiempo_limite - Math.floor((ahora - inicio) / 1000)
+          );
+
           setTiempoRestante(restante);
-          
-          if (restante > 0) {
-            iniciarCountdown(restante);
-          } else {
-            finalizarSesion();
-          }
+          iniciarCountdown(restante);
         }
       }
-      
+
       setVerificandoEstado(false);
     };
 
     verificarEstadoSesion();
-    
     cargarAlumnos();
 
-    // POLLING: cada 1 segundo recargar alumnos
-    pollingAlumnosRef.current = window.setInterval(() => {
-      cargarAlumnos();
-    }, 1000);
-
-    // POLLING: cada 2 segundos verificar estado de la sesión
-    pollingSesionRef.current = window.setInterval(() => {
-      verificarEstadoSesion();
-    }, 2000);
+    pollingAlumnosRef.current = window.setInterval(cargarAlumnos, 1500);
+    pollingSesionRef.current = window.setInterval(verificarEstadoSesion, 2000);
 
     return () => {
       if (pollingAlumnosRef.current) clearInterval(pollingAlumnosRef.current);
       if (pollingSesionRef.current) clearInterval(pollingSesionRef.current);
     };
-  }, [codigoSesion]);
+  }, []);
 
-  const iniciarCountdown = (tiempoInicial?: number) => {
+  const iniciarCountdown = (inicio: number) => {
     if (countdownRef.current) clearInterval(countdownRef.current);
-    
-    const segundosIniciales = tiempoInicial !== undefined ? tiempoInicial : tiempo * 60;
-    
+
+    let tiempo = inicio;
+
     countdownRef.current = window.setInterval(() => {
-      setTiempoRestante((prev) => {
-        if (prev <= 1) {
-          if (countdownRef.current) clearInterval(countdownRef.current);
-          finalizarSesion();
-          return 0;
-        }
-        return prev - 1;
-      });
+      tiempo -= 1;
+      setTiempoRestante(tiempo);
+
+      if (tiempo <= 0) {
+        clearInterval(countdownRef.current!);
+        finalizarSesion();
+      }
     }, 1000);
   };
 
   const iniciarSesion = async () => {
-    if (alumnos.length === 0) {
-      alert("Debe haber al menos un alumno conectado para iniciar la sesión");
-      return;
-    }
+    if (alumnos.length === 0) return;
 
     setCargando(true);
 
-    // Actualizar sesión a activa (usando booleano)
-    const { error } = await supabase
+    await supabase
       .from("sesiones")
       .update({
         activa: true,
@@ -141,117 +116,114 @@ export default function SalaProfesor({
       })
       .eq("codigo", codigoSesion);
 
-    if (error) {
-      console.error("Error al iniciar sesión:", error);
-      alert("Error al iniciar la sesión: " + error.message);
-      setCargando(false);
-      return;
-    }
-
     setSesionIniciada(true);
     setCargando(false);
-    iniciarCountdown();
+    iniciarCountdown(tiempo * 60);
   };
 
   const finalizarSesion = async () => {
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    
-    const { error } = await supabase
+    await supabase
       .from("sesiones")
       .update({
         activa: false,
         finalizada_en: new Date().toISOString(),
       })
       .eq("codigo", codigoSesion);
-
-    if (error) {
-      console.error("Error al finalizar sesión:", error);
-    } else {
-      alert("Sesión finalizada. Los alumnos ya no pueden responder.");
-    }
   };
 
-  const formatearTiempo = (segundos: number) => {
-    const mins = Math.floor(segundos / 60);
-    const segs = segundos % 60;
-    return `${mins}:${segs.toString().padStart(2, "0")}`;
-  };
+  const formatear = (s: number) =>
+    `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 
   if (verificandoEstado) {
-    return <div>Cargando sala...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center text-slate-500">
+        Cargando sala...
+      </div>
+    );
   }
 
   return (
-    <div style={{ padding: "1rem" }}>
-      <h2>Sala del profesor</h2>
+    <div className="min-h-screen bg-[#f7fbfd] p-6 flex justify-center">
 
-      <p><strong>Código sesión:</strong> {codigoSesion}</p>
-      <p><strong>Profesor:</strong> {profesorEmail}</p>
+      <div className="w-full max-w-3xl space-y-4">
 
-      {sesionIniciada ? (
-        <div style={{ backgroundColor: "#e8f5e9", padding: "10px", borderRadius: "8px" }}>
-          <h3>⏱️ Sesión activa</h3>
-          <p style={{ fontSize: "24px", fontWeight: "bold" }}>
-            Tiempo restante: {formatearTiempo(tiempoRestante)}
+        {/* HEADER */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-[#1e3a5f]">
+            Sala del profesor
+          </h2>
+          <p className="text-sm text-slate-500">{codigoSesion}</p>
+          <p className="text-sm text-slate-500">{profesorEmail}</p>
+        </div>
+
+        {/* TIMER */}
+        <div className="bg-[#f0f8ff] rounded-2xl p-6 text-center">
+          <p className="text-sm text-slate-500">Tiempo restante</p>
+          <p className="text-3xl font-bold text-[#1e3a5f]">
+            {sesionIniciada ? formatear(tiempoRestante) : `${tiempo}:00`}
           </p>
         </div>
-      ) : (
-        <div>
-          <p><strong>Tiempo total:</strong> {tiempo} minutos</p>
+
+        {/* PREGUNTAS */}
+        <div className="bg-white rounded-2xl p-6">
+          <h3 className="font-semibold text-[#1e3a5f] mb-3">
+            Preguntas activas
+          </h3>
+
+          <ul className="space-y-1 text-slate-600 text-sm">
+            {preguntas.map((p, i) => (
+              <li key={i}>• {p}</li>
+            ))}
+          </ul>
         </div>
-      )}
 
-      <h3>📋 Preguntas activas</h3>
-      <ul>
-        {preguntas.map((p, i) => (
-          <li key={i}>{i + 1}. {p}</li>
-        ))}
-      </ul>
+        {/* ALUMNOS */}
+        <div className="bg-white rounded-2xl p-6">
+          <h3 className="font-semibold text-[#1e3a5f] mb-3">
+            Alumnos conectados ({alumnos.length})
+          </h3>
 
-      <h3>👨‍🎓 Alumnos conectados ({alumnos.length})</h3>
-      {alumnos.length === 0 ? (
-        <p>Esperando alumnos... (actualizando cada 1 segundo)</p>
-      ) : (
-        <ul>
-          {alumnos.map((alumno) => (
-            <li key={alumno.id}>{alumno.nombre} - {alumno.email}</li>
-          ))}
-        </ul>
-      )}
+          {alumnos.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              Esperando alumnos...
+            </p>
+          ) : (
+            <ul className="space-y-1 text-sm text-slate-600">
+              {alumnos.map((a) => (
+                <li key={a.id}>
+                  {a.nombre} - {a.email}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
-      {!sesionIniciada && (
-        <button 
-          onClick={iniciarSesion} 
-          disabled={cargando || alumnos.length === 0}
-          style={{
-            padding: "10px 20px",
-            fontSize: "16px",
-            backgroundColor: "#4CAF50",
-            color: "white",
-            border: "none",
-            borderRadius: "5px",
-            cursor: alumnos.length === 0 ? "not-allowed" : "pointer"
-          }}
-        >
-          {cargando ? "Iniciando..." : "🚀 Iniciar temporizador"}
-        </button>
-      )}
+        {/* BOTONES */}
+        <div className="flex gap-3">
 
-      {sesionIniciada && (
-        <button 
-          onClick={finalizarSesion} 
-          style={{ 
-            backgroundColor: "red", 
-            color: "white",
-            padding: "10px 20px",
-            border: "none",
-            borderRadius: "5px",
-            cursor: "pointer"
-          }}
-        >
-          ⏹️ Finalizar sesión
-        </button>
-      )}
+          {!sesionIniciada && (
+            <button
+              onClick={iniciarSesion}
+              disabled={alumnos.length === 0 || cargando}
+              className="flex-1 py-3 rounded-xl bg-[#9ecbff] text-[#1e3a5f]
+                         hover:bg-[#81b0d6] transition disabled:opacity-50"
+            >
+              {cargando ? "Iniciando..." : "Iniciar sesión"}
+            </button>
+          )}
+
+          {sesionIniciada && (
+            <button
+              onClick={finalizarSesion}
+              className="flex-1 py-3 rounded-xl bg-red-100 text-red-600
+                         hover:bg-red-200 transition"
+            >
+              Finalizar sesión
+            </button>
+          )}
+        </div>
+
+      </div>
     </div>
   );
 }

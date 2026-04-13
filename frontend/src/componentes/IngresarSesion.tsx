@@ -188,38 +188,57 @@ export default function IngresarSesion() {
 
   // Formulario de ingreso
   return (
-    <div style={{ padding: "1rem" }}>
-      <h2>Ingresar a sesión clínica</h2>
+  <div className="min-h-screen flex items-center justify-center bg-[#f7fbfd] px-4">
 
-      <input
-        type="text"
-        placeholder="Nombre completo"
-        value={nombre}
-        onChange={(e) => setNombre(e.target.value)}
-        style={{ display: "block", margin: "10px 0", padding: "8px", width: "250px" }}
-      />
+    <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-8">
 
-      <input
-        type="email"
-        placeholder="Correo electrónico"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={{ display: "block", margin: "10px 0", padding: "8px", width: "250px" }}
-      />
+      {/* TITULO */}
+      <h2 className="text-xl font-semibold text-[#1e3a5f] text-center mb-6">
+        Ingresar a sesión clínica
+      </h2>
 
-      <input
-        type="text"
-        placeholder="Código de sesión"
-        value={codigoSesion}
-        onChange={(e) => setCodigoSesion(e.target.value.toUpperCase())}
-        style={{ display: "block", margin: "10px 0", padding: "8px", width: "250px" }}
-      />
+      {/* INPUTS */}
+      <div className="space-y-3">
 
-      {error && <p style={{ color: "red", margin: "10px 0" }}>{error}</p>}
+        <input
+          type="text"
+          placeholder="Nombre completo"
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          className="w-full px-4 py-3 rounded-xl bg-[#f7fbfd] border border-[#d6eaf3] focus:outline-none focus:ring-2 focus:ring-[#9ecbff]"
+        />
 
-      <button onClick={unirseASesion} disabled={cargando}>
+        <input
+          type="email"
+          placeholder="Correo electrónico"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full px-4 py-3 rounded-xl bg-[#f7fbfd] border border-[#d6eaf3] focus:outline-none focus:ring-2 focus:ring-[#9ecbff]"
+        />
+
+        <input
+          type="text"
+          placeholder="Código de sesión"
+          value={codigoSesion}
+          onChange={(e) => setCodigoSesion(e.target.value.toUpperCase())}
+          className="w-full px-4 py-3 rounded-xl bg-[#f7fbfd] border border-[#d6eaf3] focus:outline-none focus:ring-2 focus:ring-[#9ecbff] tracking-widest text-center font-semibold"
+        />
+      </div>
+
+      {/* ERROR */}
+      {error && (
+        <p className="text-red-500 text-sm mt-3 text-center">{error}</p>
+      )}
+
+      {/* BOTÓN */}
+      <button
+        onClick={unirseASesion}
+        disabled={cargando}
+        className="mt-5 w-full py-3 rounded-xl bg-[#9ecbff] text-[#1e3a5f] hover:bg-[#81b0d6] transition disabled:opacity-50"
+      >
         {cargando ? "Verificando..." : "Unirse a sesión"}
       </button>
     </div>
+  </div>
   );
 }

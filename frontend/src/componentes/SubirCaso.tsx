@@ -115,3 +115,4 @@ export default function SubirCaso({ codigoSesion, profesorEmail }: Props) {
     </div>
   );
 }
+

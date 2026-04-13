@@ -18,7 +18,6 @@ export default function LoginProfesor({ onLoginSuccess }: Props) {
     setError("");
 
     if (isLogin) {
-      // Iniciar sesión
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -31,7 +30,6 @@ export default function LoginProfesor({ onLoginSuccess }: Props) {
       }
 
       if (data.user) {
-        // Registrar/verificar profesor en tabla profesores
         await supabase.from("profesores").upsert({
           email: data.user.email,
           id: data.user.id,
@@ -40,7 +38,6 @@ export default function LoginProfesor({ onLoginSuccess }: Props) {
         onLoginSuccess(data.user.email!);
       }
     } else {
-      // Registrarse
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -53,7 +50,6 @@ export default function LoginProfesor({ onLoginSuccess }: Props) {
       }
 
       if (data.user) {
-        // Crear registro en tabla profesores
         await supabase.from("profesores").insert({
           email: data.user.email,
           id: data.user.id,
@@ -69,51 +65,76 @@ export default function LoginProfesor({ onLoginSuccess }: Props) {
   };
 
   return (
-    <div style={{ maxWidth: "400px", margin: "0 auto", padding: "2rem" }}>
-      <h2>{isLogin ? "Iniciar Sesión" : "Registrarse"}</h2>
+    <div className="min-h-screen flex items-center justify-center bg-[#f7fbfd] px-4">
       
-      <form onSubmit={handleSubmit}>
-        <div>
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-8">
+        
+        {/* TÍTULO */}
+        <h2 className="text-2xl font-semibold text-center text-[#1e3a5f] mb-2">
+          {isLogin ? "Bienvenido de nuevo" : "Crear cuenta"}
+        </h2>
+
+        <p className="text-center text-slate-500 mb-6 text-sm">
+          {isLogin ? "Ingresa como profesor" : "Regístrate como profesor"}
+        </p>
+
+        {/* FORM */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          
           <input
             type="email"
             placeholder="Correo electrónico"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            style={{ width: "100%", padding: "8px", margin: "8px 0" }}
+            className="w-full px-4 py-3 rounded-xl border border-slate-200
+                       focus:outline-none focus:ring-2 focus:ring-[#9ecbff]
+                       text-sm"
           />
-        </div>
-        
-        <div>
+
           <input
             type="password"
             placeholder="Contraseña"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            style={{ width: "100%", padding: "8px", margin: "8px 0" }}
+            className="w-full px-4 py-3 rounded-xl border border-slate-200
+                       focus:outline-none focus:ring-2 focus:ring-[#9ecbff]
+                       text-sm"
           />
-        </div>
 
-        {error && <p style={{ color: "red" }}>{error}</p>}
+          {error && (
+            <p className="text-red-500 text-sm text-center">{error}</p>
+          )}
 
-        <button 
-          type="submit" 
-          disabled={cargando}
-          style={{ width: "100%", padding: "10px", margin: "8px 0" }}
+          <button
+            type="submit"
+            disabled={cargando}
+            className="
+              w-full py-3 rounded-xl text-sm font-medium
+              bg-[#9ecbff] text-[#1e3a5f]
+              hover:bg-[#81b0d6]
+              transition-all duration-200
+            "
+          >
+            {cargando
+              ? "Cargando..."
+              : isLogin
+              ? "Ingresar"
+              : "Registrarse"}
+          </button>
+        </form>
+
+        {/* SWITCH */}
+        <button
+          onClick={() => setIsLogin(!isLogin)}
+          className="mt-5 w-full text-sm text-slate-500 hover:text-[#1e3a5f] transition"
         >
-          {cargando ? "Cargando..." : (isLogin ? "Ingresar" : "Registrarse")}
+          {isLogin
+            ? "¿No tienes cuenta? Regístrate"
+            : "¿Ya tienes cuenta? Inicia sesión"}
         </button>
-      </form>
-
-      <button 
-        onClick={() => setIsLogin(!isLogin)}
-        style={{ width: "100%", padding: "10px", margin: "8px 0" }}
-      >
-        {isLogin ? "¿No tienes cuenta? Regístrate" : "¿Ya tienes cuenta? Inicia sesión"}
-      </button>
+      </div>
     </div>
   );
 }
-
-///COMENTARIO LOGIN EN MAYUSCULA 
