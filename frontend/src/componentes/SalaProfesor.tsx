@@ -13,6 +13,7 @@ interface Alumno {
   nombre: string;
   email: string;
   joined_en: string;
+  entregado: boolean;
 }
 
 interface Sesion {
@@ -33,17 +34,20 @@ export default function SalaProfesor({
   const [cargando, setCargando] = useState(false);
   const [verificandoEstado, setVerificandoEstado] = useState(true);
 
-  const pollingAlumnosRef = useRef<number | null>(null);
-  const pollingSesionRef = useRef<number | null>(null);
+  const pollingRef = useRef<number | null>(null);
   const countdownRef = useRef<number | null>(null);
 
   const cargarAlumnos = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("alumnos")
       .select("*")
       .eq("sesion_codigo", codigoSesion);
 
-    if (data) setAlumnos(data as Alumno[]);
+    if (error) {
+      console.error("Error al cargar alumnos:", error);
+    } else if (data) {
+      setAlumnos(data as Alumno[]);
+    }
   };
 
   useEffect(() => {
@@ -70,6 +74,12 @@ export default function SalaProfesor({
           setTiempoRestante(restante);
           iniciarCountdown(restante);
         }
+      } else if (!sesion?.activa && sesionIniciada) {
+        // La sesión fue finalizada por el profesor
+        setSesionIniciada(false);
+        if (countdownRef.current) {
+          clearInterval(countdownRef.current);
+        }
       }
 
       setVerificandoEstado(false);
@@ -78,25 +88,26 @@ export default function SalaProfesor({
     verificarEstadoSesion();
     cargarAlumnos();
 
-    pollingAlumnosRef.current = window.setInterval(cargarAlumnos, 1500);
-    pollingSesionRef.current = window.setInterval(verificarEstadoSesion, 2000);
+    pollingRef.current = window.setInterval(() => {
+      cargarAlumnos();
+      verificarEstadoSesion();
+    }, 2000);
 
     return () => {
-      if (pollingAlumnosRef.current) clearInterval(pollingAlumnosRef.current);
-      if (pollingSesionRef.current) clearInterval(pollingSesionRef.current);
+      if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, []);
 
   const iniciarCountdown = (inicio: number) => {
     if (countdownRef.current) clearInterval(countdownRef.current);
 
-    let tiempo = inicio;
+    let tiempoActual = inicio;
 
     countdownRef.current = window.setInterval(() => {
-      tiempo -= 1;
-      setTiempoRestante(tiempo);
+      tiempoActual -= 1;
+      setTiempoRestante(tiempoActual);
 
-      if (tiempo <= 0) {
+      if (tiempoActual <= 0) {
         clearInterval(countdownRef.current!);
         finalizarSesion();
       }
@@ -108,7 +119,7 @@ export default function SalaProfesor({
 
     setCargando(true);
 
-    await supabase
+    const { error } = await supabase
       .from("sesiones")
       .update({
         activa: true,
@@ -116,19 +127,40 @@ export default function SalaProfesor({
       })
       .eq("codigo", codigoSesion);
 
+    if (error) {
+      console.error("Error al iniciar sesión:", error);
+      alert("Error al iniciar la sesión: " + error.message);
+      setCargando(false);
+      return;
+    }
+
     setSesionIniciada(true);
     setCargando(false);
     iniciarCountdown(tiempo * 60);
   };
 
   const finalizarSesion = async () => {
-    await supabase
+    // Detener el countdown localmente
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+    }
+
+    // Actualizar la sesión en Supabase
+    const { error } = await supabase
       .from("sesiones")
       .update({
         activa: false,
         finalizada_en: new Date().toISOString(),
       })
       .eq("codigo", codigoSesion);
+
+    if (error) {
+      console.error("Error al finalizar sesión:", error);
+      alert("Error al finalizar la sesión: " + error.message);
+    } else {
+      setSesionIniciada(false);
+      alert("✅ Sesión finalizada. Los alumnos ya no pueden responder.");
+    }
   };
 
   const formatear = (s: number) =>
@@ -144,32 +176,22 @@ export default function SalaProfesor({
 
   return (
     <div className="min-h-screen bg-[#f7fbfd] p-6 flex justify-center">
-
       <div className="w-full max-w-3xl space-y-4">
-
-        {/* HEADER */}
         <div className="bg-white rounded-2xl p-6 shadow-sm">
-          <h2 className="text-xl font-semibold text-[#1e3a5f]">
-            Sala del profesor
-          </h2>
+          <h2 className="text-xl font-semibold text-[#1e3a5f]">Sala del profesor</h2>
           <p className="text-sm text-slate-500">{codigoSesion}</p>
           <p className="text-sm text-slate-500">{profesorEmail}</p>
         </div>
 
-        {/* TIMER */}
         <div className="bg-[#f0f8ff] rounded-2xl p-6 text-center">
           <p className="text-sm text-slate-500">Tiempo restante</p>
           <p className="text-3xl font-bold text-[#1e3a5f]">
-            {sesionIniciada ? formatear(tiempoRestante) : `${tiempo}:00`}
+            {sesionIniciada ? formatear(tiempoRestante) : "Sesión finalizada"}
           </p>
         </div>
 
-        {/* PREGUNTAS */}
         <div className="bg-white rounded-2xl p-6">
-          <h3 className="font-semibold text-[#1e3a5f] mb-3">
-            Preguntas activas
-          </h3>
-
+          <h3 className="font-semibold text-[#1e3a5f] mb-3">Preguntas activas</h3>
           <ul className="space-y-1 text-slate-600 text-sm">
             {preguntas.map((p, i) => (
               <li key={i}>• {p}</li>
@@ -177,52 +199,49 @@ export default function SalaProfesor({
           </ul>
         </div>
 
-        {/* ALUMNOS */}
         <div className="bg-white rounded-2xl p-6">
           <h3 className="font-semibold text-[#1e3a5f] mb-3">
             Alumnos conectados ({alumnos.length})
           </h3>
 
           {alumnos.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              Esperando alumnos...
-            </p>
+            <p className="text-sm text-slate-500">Esperando alumnos...</p>
           ) : (
-            <ul className="space-y-1 text-sm text-slate-600">
+            <ul className="space-y-2 text-sm">
               {alumnos.map((a) => (
-                <li key={a.id}>
-                  {a.nombre} - {a.email}
+                <li key={a.id} className="flex justify-between items-center border-b pb-2">
+                  <span>{a.nombre} - {a.email}</span>
+                  {a.entregado === true ? (
+                    <span className="text-green-600 font-medium">✅ Entregado</span>
+                  ) : (
+                    <span className="text-yellow-600 font-medium">⏳ Pendiente</span>
+                  )}
                 </li>
               ))}
             </ul>
           )}
         </div>
 
-        {/* BOTONES */}
         <div className="flex gap-3">
-
           {!sesionIniciada && (
             <button
               onClick={iniciarSesion}
               disabled={alumnos.length === 0 || cargando}
-              className="flex-1 py-3 rounded-xl bg-[#9ecbff] text-[#1e3a5f]
-                         hover:bg-[#81b0d6] transition disabled:opacity-50"
+              className="flex-1 py-3 rounded-xl bg-[#9ecbff] text-[#1e3a5f] hover:bg-[#81b0d6] transition disabled:opacity-50"
             >
-              {cargando ? "Iniciando..." : "Iniciar sesión"}
+              {cargando ? "Iniciando..." : "🚀 Iniciar sesión"}
             </button>
           )}
 
           {sesionIniciada && (
             <button
               onClick={finalizarSesion}
-              className="flex-1 py-3 rounded-xl bg-red-100 text-red-600
-                         hover:bg-red-200 transition"
+              className="flex-1 py-3 rounded-xl bg-red-500 text-white hover:bg-red-600 transition"
             >
-              Finalizar sesión
+              ⏹️ Finalizar sesión
             </button>
           )}
         </div>
-
       </div>
     </div>
   );

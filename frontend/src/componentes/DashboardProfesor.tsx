@@ -28,7 +28,6 @@ export default function DashboardProfesor({ profesorEmail, onLogout }: Props) {
 
   const cambiarVista = (nuevaVista: typeof vista) => {
     setAnimando(true);
-
     setTimeout(() => {
       setVista(nuevaVista);
       setAnimando(false);
