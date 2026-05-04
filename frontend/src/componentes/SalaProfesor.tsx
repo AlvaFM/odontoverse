@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabase";
+import dienteLike from "../assets/img/dientelupa.png";
 
 interface Props {
   codigoSesion: string;
@@ -33,21 +34,23 @@ export default function SalaProfesor({
   const [tiempoRestante, setTiempoRestante] = useState(tiempo * 60);
   const [cargando, setCargando] = useState(false);
   const [verificandoEstado, setVerificandoEstado] = useState(true);
+  const [mostrarToast, setMostrarToast] = useState(false);
 
   const pollingRef = useRef<number | null>(null);
   const countdownRef = useRef<number | null>(null);
 
+  const activarToast = () => {
+    setMostrarToast(true);
+    setTimeout(() => setMostrarToast(false), 3000);
+  };
+
   const cargarAlumnos = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("alumnos")
       .select("*")
       .eq("sesion_codigo", codigoSesion);
 
-    if (error) {
-      console.error("Error al cargar alumnos:", error);
-    } else if (data) {
-      setAlumnos(data as Alumno[]);
-    }
+    if (data) setAlumnos(data as Alumno[]);
   };
 
   useEffect(() => {
@@ -74,12 +77,12 @@ export default function SalaProfesor({
           setTiempoRestante(restante);
           iniciarCountdown(restante);
         }
-      } else if (!sesion?.activa && sesionIniciada) {
-        // La sesión fue finalizada por el profesor
+      }
+
+      if (!sesion?.activa && sesionIniciada) {
         setSesionIniciada(false);
-        if (countdownRef.current) {
-          clearInterval(countdownRef.current);
-        }
+        activarToast();
+        if (countdownRef.current) clearInterval(countdownRef.current);
       }
 
       setVerificandoEstado(false);
@@ -119,7 +122,7 @@ export default function SalaProfesor({
 
     setCargando(true);
 
-    const { error } = await supabase
+    await supabase
       .from("sesiones")
       .update({
         activa: true,
@@ -127,26 +130,15 @@ export default function SalaProfesor({
       })
       .eq("codigo", codigoSesion);
 
-    if (error) {
-      console.error("Error al iniciar sesión:", error);
-      alert("Error al iniciar la sesión: " + error.message);
-      setCargando(false);
-      return;
-    }
-
     setSesionIniciada(true);
     setCargando(false);
     iniciarCountdown(tiempo * 60);
   };
 
   const finalizarSesion = async () => {
-    // Detener el countdown localmente
-    if (countdownRef.current) {
-      clearInterval(countdownRef.current);
-    }
+    if (countdownRef.current) clearInterval(countdownRef.current);
 
-    // Actualizar la sesión en Supabase
-    const { error } = await supabase
+    await supabase
       .from("sesiones")
       .update({
         activa: false,
@@ -154,13 +146,8 @@ export default function SalaProfesor({
       })
       .eq("codigo", codigoSesion);
 
-    if (error) {
-      console.error("Error al finalizar sesión:", error);
-      alert("Error al finalizar la sesión: " + error.message);
-    } else {
-      setSesionIniciada(false);
-      alert("✅ Sesión finalizada. Los alumnos ya no pueden responder.");
-    }
+    setSesionIniciada(false);
+    activarToast();
   };
 
   const formatear = (s: number) =>
@@ -168,53 +155,98 @@ export default function SalaProfesor({
 
   if (verificandoEstado) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-slate-500">
-        Cargando sala...
+      <div className="min-h-screen flex items-center justify-center bg-[#eef6fb]">
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex items-center gap-4">
+          <div className="w-12 h-12 bg-[#eef6ff] rounded-xl flex items-center justify-center animate-pulse">
+            <img src={dienteLike} className="w-8 h-8 opacity-70" />
+          </div>
+          <p className="text-sm text-slate-500">Cargando sala</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f7fbfd] p-6 flex justify-center">
-      <div className="w-full max-w-3xl space-y-4">
-        <div className="bg-white rounded-2xl p-6 shadow-sm">
-          <h2 className="text-xl font-semibold text-[#1e3a5f]">Sala del profesor</h2>
-          <p className="text-sm text-slate-500">{codigoSesion}</p>
-          <p className="text-sm text-slate-500">{profesorEmail}</p>
+    <div className="min-h-screen bg-[#eef6fb] p-6 flex items-center justify-center">
+      <div className="w-full max-w-3xl space-y-5">
+
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex items-center gap-4">
+          <div className="w-14 h-14 bg-[#eef6ff] rounded-2xl flex items-center justify-center">
+            <img src={dienteLike} className="w-10 h-10 object-contain" />
+          </div>
+
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold text-[#1e3a5f]">
+              Sala activa
+            </h2>
+            <p className="text-xs text-slate-400">
+              Código {codigoSesion}
+            </p>
+          </div>
+
+          <div className="text-right">
+            <p className="text-xs text-slate-400">Profesor</p>
+            <p className="text-sm text-[#1e3a5f] font-medium">
+              {profesorEmail}
+            </p>
+          </div>
         </div>
 
-        <div className="bg-[#f0f8ff] rounded-2xl p-6 text-center">
+        <div className="bg-white rounded-3xl p-6 text-center shadow-sm border border-slate-100">
           <p className="text-sm text-slate-500">Tiempo restante</p>
-          <p className="text-3xl font-bold text-[#1e3a5f]">
-            {sesionIniciada ? formatear(tiempoRestante) : "Sesión finalizada"}
+
+          <p className="text-4xl font-bold text-[#1e3a5f] mt-1">
+            {sesionIniciada ? formatear(tiempoRestante) : "--:--"}
+          </p>
+
+          <p className="text-xs text-slate-400 mt-1">
+            {sesionIniciada ? "En curso" : "Sesión detenida"}
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl p-6">
-          <h3 className="font-semibold text-[#1e3a5f] mb-3">Preguntas activas</h3>
-          <ul className="space-y-1 text-slate-600 text-sm">
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+          <h3 className="font-semibold text-[#1e3a5f] mb-3">
+            Preguntas activas
+          </h3>
+
+          <ul className="space-y-2 text-slate-600 text-sm">
             {preguntas.map((p, i) => (
-              <li key={i}>• {p}</li>
+              <li key={i} className="bg-slate-50 rounded-lg px-3 py-2">
+                {p}
+              </li>
             ))}
           </ul>
         </div>
 
-        <div className="bg-white rounded-2xl p-6">
-          <h3 className="font-semibold text-[#1e3a5f] mb-3">
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+          <h3 className="font-semibold text-[#1e3a5f] mb-4">
             Alumnos conectados ({alumnos.length})
           </h3>
 
           {alumnos.length === 0 ? (
-            <p className="text-sm text-slate-500">Esperando alumnos...</p>
+            <p className="text-sm text-slate-400">Sin alumnos aún</p>
           ) : (
-            <ul className="space-y-2 text-sm">
+            <ul className="space-y-3">
               {alumnos.map((a) => (
-                <li key={a.id} className="flex justify-between items-center border-b pb-2">
-                  <span>{a.nombre} - {a.email}</span>
-                  {a.entregado === true ? (
-                    <span className="text-green-600 font-medium">✅ Entregado</span>
+                <li
+                  key={a.id}
+                  className="flex justify-between items-center bg-slate-50 px-4 py-3 rounded-xl"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-[#1e3a5f]">
+                      {a.nombre}
+                    </p>
+                    <p className="text-xs text-slate-400">{a.email}</p>
+                  </div>
+
+                  {a.entregado ? (
+                    <span className="text-xs font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full">
+                      Entregado
+                    </span>
                   ) : (
-                    <span className="text-yellow-600 font-medium">⏳ Pendiente</span>
+                    <span className="text-xs font-semibold text-yellow-600 bg-yellow-50 px-3 py-1 rounded-full">
+                      Pendiente
+                    </span>
                   )}
                 </li>
               ))}
@@ -227,22 +259,43 @@ export default function SalaProfesor({
             <button
               onClick={iniciarSesion}
               disabled={alumnos.length === 0 || cargando}
-              className="flex-1 py-3 rounded-xl bg-[#9ecbff] text-[#1e3a5f] hover:bg-[#81b0d6] transition disabled:opacity-50"
+              className="flex-1 py-3 rounded-2xl bg-[#7bb6ff] text-white font-medium hover:bg-[#5fa4f0] transition disabled:opacity-40"
             >
-              {cargando ? "Iniciando..." : "🚀 Iniciar sesión"}
+              {cargando ? "Iniciando..." : "Iniciar"}
             </button>
           )}
 
           {sesionIniciada && (
             <button
               onClick={finalizarSesion}
-              className="flex-1 py-3 rounded-xl bg-red-500 text-white hover:bg-red-600 transition"
+              className="flex-1 py-3 rounded-2xl bg-red-500 text-white font-medium hover:bg-red-600 transition"
             >
-              ⏹️ Finalizar sesión
+              Finalizar
             </button>
           )}
         </div>
       </div>
-    </div>
+
+        {mostrarToast && (
+          <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 animate-[slideDown_0.35s_ease]">
+            <div className="bg-white border border-slate-100 shadow-lg rounded-2xl px-5 py-3 flex items-center gap-3 min-w-[260px]">
+
+              <div className="w-10 h-10 bg-[#eef6ff] rounded-xl flex items-center justify-center">
+                <img src={dienteLike} className="w-6 h-6 object-contain" />
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-[#1e3a5f]">
+                  Sesión finalizada
+                </p>
+                <p className="text-xs text-slate-400">
+                  Los alumnos ya no pueden responder
+                </p>
+              </div>
+
+            </div>
+          </div>
+        )}
+      </div>
   );
 }
