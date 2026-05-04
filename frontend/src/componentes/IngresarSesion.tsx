@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import VistaAlumno from "./VistaAlumno";
+import dienteLike from "../assets/img/dientelike.png";
 
 interface SesionData {
   codigo: string;
@@ -21,52 +22,32 @@ export default function IngresarSesion() {
 
   useEffect(() => {
     return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
+      if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, []);
 
   const unirseASesion = async () => {
-    if (!nombre.trim()) {
-      setError("Ingresa tu nombre");
-      return;
-    }
-    if (!email.trim()) {
-      setError("Ingresa tu email");
-      return;
-    }
-    if (!codigoSesion.trim()) {
-      setError("Ingresa el código de sesión");
-      return;
-    }
+    if (!nombre.trim()) return setError("Ingresa tu nombre");
+    if (!email.trim()) return setError("Ingresa tu email");
+    if (!codigoSesion.trim()) return setError("Ingresa el código");
 
     setCargando(true);
     setError("");
 
-    // 1. Verificar si la sesión existe
     const { data, error: errorSesion } = await supabase
       .from("sesiones")
       .select("codigo, activa, tiempo_limite")
       .eq("codigo", codigoSesion.toUpperCase())
       .maybeSingle();
 
-    if (errorSesion) {
-      console.error("Error al verificar sesión:", errorSesion);
-      setError("Error al verificar la sesión");
-      setCargando(false);
-      return;
-    }
-
-    if (!data) {
-      setError("Código de sesión inválido");
+    if (errorSesion || !data) {
+      setError("Código inválido");
       setCargando(false);
       return;
     }
 
     const sesion = data as SesionData;
 
-    // 2. Verificar si el alumno ya está registrado
     const { data: alumnoExistente } = await supabase
       .from("alumnos")
       .select("id")
@@ -74,11 +55,10 @@ export default function IngresarSesion() {
       .eq("email", email)
       .maybeSingle();
 
-    let alumnoIdTemp: string = alumnoExistente?.id || "";
+    let alumnoIdTemp = alumnoExistente?.id || "";
 
-    // 3. Registrar al alumno SIEMPRE
     if (!alumnoIdTemp) {
-      const { data: nuevoAlumno, error: errorAlumno } = await supabase
+      const { data: nuevoAlumno, error } = await supabase
         .from("alumnos")
         .insert([{
           nombre: nombre.trim(),
@@ -88,9 +68,8 @@ export default function IngresarSesion() {
         .select()
         .single();
 
-      if (errorAlumno) {
-        console.error("Error al registrar alumno:", errorAlumno);
-        setError("Error al unirse a la sesión: " + errorAlumno.message);
+      if (error) {
+        setError("No se pudo ingresar");
         setCargando(false);
         return;
       }
@@ -101,49 +80,29 @@ export default function IngresarSesion() {
     setAlumnoId(alumnoIdTemp);
     setCargando(false);
 
-    // 4. Si la sesión está activa, entrar directamente
-    if (sesion.activa === true) {
+    if (sesion.activa) {
       setEntrar(true);
       return;
     }
 
-    // 5. Si la sesión no está activa, mostrar sala de espera con POLLING
-    if (sesion.activa === false) {
-      setEsperandoInicio(true);
-      
-      // POLLING: cada 1 segundo verificar si la sesión se activa
-      pollingRef.current = window.setInterval(async () => {
-        try {
-          const { data: estadoData, error: pollingError } = await supabase
-            .from("sesiones")
-            .select("activa")
-            .eq("codigo", codigoSesion.toUpperCase())
-            .maybeSingle();
-          
-          if (pollingError) {
-            console.error("Error en polling:", pollingError);
-            return;
-          }
-          
-          if (estadoData && estadoData.activa === true) {
-            console.log("¡Sesión activa detectada! Redirigiendo...");
-            if (pollingRef.current) {
-              clearInterval(pollingRef.current);
-            }
-            // IMPORTANTE: Cambiar ambos estados
-            setEsperandoInicio(false);
-            setEntrar(true);
-          }
-        } catch (err) {
-          console.error("Error en polling:", err);
-        }
-      }, 1000);
-      
-      return;
-    }
+    setEsperandoInicio(true);
+
+    pollingRef.current = window.setInterval(async () => {
+      const { data: estado } = await supabase
+        .from("sesiones")
+        .select("activa")
+        .eq("codigo", codigoSesion.toUpperCase())
+        .maybeSingle();
+
+      if (estado?.activa) {
+        if (pollingRef.current) clearInterval(pollingRef.current);
+        setEsperandoInicio(false);
+        setEntrar(true);
+      }
+    }, 1000);
   };
 
-  // Entrar al cuestionario (primera prioridad)
+  // Vista alumno
   if (entrar && alumnoId) {
     return (
       <VistaAlumno
@@ -155,90 +114,106 @@ export default function IngresarSesion() {
     );
   }
 
-  // Sala de espera
+  // SALA DE ESPERA (🔥 nueva versión limpia)
   if (esperandoInicio) {
     return (
-      <div style={{ textAlign: "center", padding: "2rem" }}>
-        <h2>⏳ Sala de espera</h2>
-        <p><strong>{nombre}</strong>, ya estás registrado en la sesión.</p>
-        <p><strong>Código:</strong> {codigoSesion}</p>
-        <p><strong>Email:</strong> {email}</p>
-        <p>El profesor <strong>iniciará el cuestionario en breve</strong>.</p>
-        <p>No cierres esta ventana. Verificando cada 1 segundo...</p>
-        <div style={{ marginTop: "20px" }}>
-          <div className="spinner" style={{
-            width: "40px",
-            height: "40px",
-            border: "4px solid #f3f3f3",
-            borderTop: "4px solid #3498db",
-            borderRadius: "50%",
-            animation: "spin 1s linear infinite",
-            margin: "0 auto"
-          }}></div>
+      <div className="min-h-screen flex items-center justify-center bg-[#eef6fb] px-4">
+        <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-sm border border-slate-100 text-center space-y-5">
+
+          {/* ICONO */}
+          <div className="w-16 h-16 mx-auto bg-[#eef6ff] rounded-2xl flex items-center justify-center animate-pulse">
+            <img src={dienteLike} className="w-10 h-10 object-contain" />
+          </div>
+
+          {/* TEXTO */}
+          <div>
+            <h2 className="text-lg font-semibold text-[#1e3a5f]">
+              Esperando inicio
+            </h2>
+            <p className="text-sm text-slate-400 mt-1">
+              Ya estás dentro de la sesión
+            </p>
+          </div>
+
+          {/* INFO */}
+          <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-500 space-y-1">
+            <p className="font-medium text-[#1e3a5f]">{nombre}</p>
+            <p>{email}</p>
+            <p className="tracking-widest font-semibold text-center text-[#1e3a5f]">
+              {codigoSesion}
+            </p>
+          </div>
+
+          {/* LOADING */}
+          <div className="flex justify-center">
+            <div className="w-6 h-6 border-2 border-[#9ecbff] border-t-transparent rounded-full animate-spin"></div>
+          </div>
+
+          <p className="text-xs text-slate-400">
+            Esperando que el profesor inicie la sesión
+          </p>
         </div>
-        <style>{`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}</style>
       </div>
     );
   }
 
-  // Formulario de ingreso
+  // FORMULARIO
   return (
-  <div className="min-h-screen flex items-center justify-center bg-[#f7fbfd] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#eef6fb] px-4">
 
-    <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-8">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-sm border border-slate-100 p-8 space-y-5">
 
-      {/* TITULO */}
-      <h2 className="text-xl font-semibold text-[#1e3a5f] text-center mb-6">
-        Ingresar a sesión clínica
-      </h2>
+        {/* ICONO */}
+        <div className="w-14 h-14 mx-auto bg-[#eef6ff] rounded-2xl flex items-center justify-center">
+          <img src={dienteLike} className="w-9 h-9 object-contain" />
+        </div>
 
-      {/* INPUTS */}
-      <div className="space-y-3">
+        {/* TITULO */}
+        <h2 className="text-lg font-semibold text-[#1e3a5f] text-center">
+          Unirse a sesión
+        </h2>
 
-        <input
-          type="text"
-          placeholder="Nombre completo"
-          value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl bg-[#f7fbfd] border border-[#d6eaf3] focus:outline-none focus:ring-2 focus:ring-[#9ecbff]"
-        />
+        {/* INPUTS */}
+        <div className="space-y-3">
+          <input
+            type="text"
+            placeholder="Nombre completo"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl bg-[#f7fbfd] border border-[#d6eaf3] focus:outline-none focus:ring-2 focus:ring-[#9ecbff]"
+          />
 
-        <input
-          type="email"
-          placeholder="Correo electrónico"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl bg-[#f7fbfd] border border-[#d6eaf3] focus:outline-none focus:ring-2 focus:ring-[#9ecbff]"
-        />
+          <input
+            type="email"
+            placeholder="Correo electrónico"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl bg-[#f7fbfd] border border-[#d6eaf3] focus:outline-none focus:ring-2 focus:ring-[#9ecbff]"
+          />
 
-        <input
-          type="text"
-          placeholder="Código de sesión"
-          value={codigoSesion}
-          onChange={(e) => setCodigoSesion(e.target.value.toUpperCase())}
-          className="w-full px-4 py-3 rounded-xl bg-[#f7fbfd] border border-[#d6eaf3] focus:outline-none focus:ring-2 focus:ring-[#9ecbff] tracking-widest text-center font-semibold"
-        />
+          <input
+            type="text"
+            placeholder="Código de sesión"
+            value={codigoSesion}
+            onChange={(e) => setCodigoSesion(e.target.value.toUpperCase())}
+            className="w-full px-4 py-3 rounded-xl bg-[#f7fbfd] border border-[#d6eaf3] focus:outline-none focus:ring-2 focus:ring-[#9ecbff] tracking-widest text-center font-semibold"
+          />
+        </div>
+
+        {/* ERROR */}
+        {error && (
+          <p className="text-red-500 text-sm text-center">{error}</p>
+        )}
+
+        {/* BOTÓN */}
+        <button
+          onClick={unirseASesion}
+          disabled={cargando}
+          className="w-full py-3 rounded-2xl bg-[#7bb6ff] text-white font-medium hover:bg-[#5fa4f0] transition disabled:opacity-40"
+        >
+          {cargando ? "Verificando..." : "Ingresar"}
+        </button>
       </div>
-
-      {/* ERROR */}
-      {error && (
-        <p className="text-red-500 text-sm mt-3 text-center">{error}</p>
-      )}
-
-      {/* BOTÓN */}
-      <button
-        onClick={unirseASesion}
-        disabled={cargando}
-        className="mt-5 w-full py-3 rounded-xl bg-[#9ecbff] text-[#1e3a5f] hover:bg-[#81b0d6] transition disabled:opacity-50"
-      >
-        {cargando ? "Verificando..." : "Unirse a sesión"}
-      </button>
     </div>
-  </div>
   );
 }
