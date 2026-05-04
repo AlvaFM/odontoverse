@@ -211,7 +211,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f7fbfd] px-4">
         <div className="text-center bg-white rounded-2xl p-8 max-w-md">
-          <h2 className="text-2xl font-semibold text-[#1e3a5f] mb-4">⏰ Tiempo finalizado</h2>
+          <h2 className="text-2xl font-semibold text-[#1e3a5f] mb-4">Tiempo finalizado</h2>
           <p className="text-slate-600 mb-2">Gracias por participar, {nombre}.</p>
           <p className="text-slate-600 mb-2">Tus respuestas han sido enviadas al profesor.</p>
           <p className="text-slate-600 mb-6">Los resultados te llegarán a: <strong>{email}</strong></p>
@@ -227,7 +227,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f7fbfd] px-4">
         <div className="text-center bg-white rounded-2xl p-8">
-          <h2 className="text-xl font-semibold text-red-500 mb-4">⚠️ No hay preguntas</h2>
+          <h2 className="text-xl font-semibold text-red-500 mb-4">No hay preguntas</h2>
           <p className="text-slate-600 mb-4">El profesor aún no ha configurado las preguntas para esta sesión.</p>
           <button onClick={() => window.location.reload()} className="px-6 py-2 bg-[#9ecbff] rounded-xl">Volver al inicio</button>
         </div>
@@ -269,7 +269,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
           </button>
         ) : (
           <button onClick={enviarRespuestas} disabled={enviando} className="w-full py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 transition disabled:opacity-50">
-            {enviando ? "Enviando..." : "📤 Enviar respuestas"}
+            {enviando ? "Enviando..." : "Enviar respuestas"}
           </button>
         )}
       </div>

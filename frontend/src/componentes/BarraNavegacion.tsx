@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import logo from "../assets/img/logo.png";
+import logo from "../assets/img/tooth.svg";
 
 interface Props {
   onNavigate: (vista: string) => void;

@@ -155,9 +155,9 @@ export default function VerSesionesPrevias({ profesorEmail, onVolver }: Props) {
             <p className="text-slate-500">{alumnoSeleccionado.email}</p>
             <p className="text-slate-500 text-sm">Sesión: {sesionSeleccionada?.codigo}</p>
             {alumnoSeleccionado.entregado ? (
-              <p className="text-green-600 text-sm mt-2">✅ Entregado</p>
+              <p className="text-green-600 text-sm mt-2">Entregado</p>
             ) : (
-              <p className="text-yellow-600 text-sm mt-2">⏳ Pendiente</p>
+              <p className="text-yellow-600 text-sm mt-2">Pendiente</p>
             )}
           </div>
 
@@ -166,7 +166,7 @@ export default function VerSesionesPrevias({ profesorEmail, onVolver }: Props) {
             
             {respuestas.length === 0 ? (
               <div>
-                <p className="text-red-500 mb-2">⚠️ No se encontraron respuestas para este alumno.</p>
+                <p className="text-red-500 mb-2">No se encontraron respuestas para este alumno.</p>
                 {alumnoSeleccionado.entregado && (
                   <p className="text-slate-500">El alumno está marcado como "Entregado" pero no hay respuestas en la base de datos. Verifica la tabla respuestas_alumnos.</p>
                 )}

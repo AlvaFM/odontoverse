@@ -1,11 +1,15 @@
+import { useState, useEffect } from "react";
 import teacherIcon from "../assets/img/teacher.svg";
 import studentIcon from "../assets/img/student.svg";
+import Tutorial from "./Tutorial";
 
 interface Props {
   onNavigate?: (vista: string) => void;
 }
 
 export default function SeleccionModo({ onNavigate }: Props) {
+  const [mostrarTutorial, setMostrarTutorial] = useState(false);
+
   const opciones = [
     {
       key: "ingresar",
@@ -22,6 +26,15 @@ export default function SeleccionModo({ onNavigate }: Props) {
       hover: "hover:bg-[#b3d8ee]",
     },
   ];
+
+  // Mostrar automáticamente la primera vez
+  useEffect(() => {
+    const visto = localStorage.getItem("tutorial-visto");
+    if (!visto) {
+      setMostrarTutorial(true);
+      localStorage.setItem("tutorial-visto", "true");
+    }
+  }, []);
 
   return (
     <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#f7fbfd] px-4">
@@ -48,6 +61,7 @@ export default function SeleccionModo({ onNavigate }: Props) {
         {opciones.map((op) => (
           <div
             key={op.key}
+            id={op.key === "login" ? "modo-profesor" : "modo-estudiante"}
             onClick={() => onNavigate?.(op.key)}
             className={`
               flex-1 flex flex-col items-center justify-center cursor-pointer
@@ -78,6 +92,19 @@ export default function SeleccionModo({ onNavigate }: Props) {
           </div>
         ))}
       </div>
+
+      {/* BOTÓN DE AYUDA */}
+      <button
+        onClick={() => setMostrarTutorial(true)}
+        className="fixed bottom-6 left-6 bg-[#1e3a5f] text-white px-4 py-2 rounded-full shadow-lg hover:scale-105 transition z-40"
+      >
+        Ayuda
+      </button>
+
+      {/* TUTORIAL */}
+      {mostrarTutorial && (
+        <Tutorial {...({ onClose: () => setMostrarTutorial(false) } as any)} />
+      )}
     </div>
   );
 }
