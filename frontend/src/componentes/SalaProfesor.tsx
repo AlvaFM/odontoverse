@@ -7,6 +7,7 @@ interface Props {
   preguntas: string[];
   tiempo: number;
   profesorEmail: string;
+  onVolver: () => void;
 }
 
 interface Alumno {
@@ -28,20 +29,26 @@ export default function SalaProfesor({
   preguntas,
   tiempo,
   profesorEmail,
+  onVolver,
 }: Props) {
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
   const [sesionIniciada, setSesionIniciada] = useState(false);
+  const [sesionFinalizada, setSesionFinalizada] = useState(false);
   const [tiempoRestante, setTiempoRestante] = useState(tiempo * 60);
   const [cargando, setCargando] = useState(false);
   const [verificandoEstado, setVerificandoEstado] = useState(true);
-  const [mostrarToast, setMostrarToast] = useState(false);
+  const [todosEntregaron, setTodosEntregaron] = useState(false);
 
   const pollingRef = useRef<number | null>(null);
   const countdownRef = useRef<number | null>(null);
+  const verificarEntregasRef = useRef<number | null>(null);
 
-  const activarToast = () => {
-    setMostrarToast(true);
-    setTimeout(() => setMostrarToast(false), 3000);
+  const handleVolver = () => {
+    if (onVolver) {
+      onVolver();
+    } else {
+      window.location.reload();
+    }
   };
 
   const cargarAlumnos = async () => {
@@ -50,7 +57,29 @@ export default function SalaProfesor({
       .select("*")
       .eq("sesion_codigo", codigoSesion);
 
-    if (data) setAlumnos(data as Alumno[]);
+    if (data) {
+      setAlumnos(data as Alumno[]);
+    }
+  };
+
+  // Consulta cada 1 segundo para verificar si todos los alumnos entregaron
+  const verificarSiTodosEntregaron = async () => {
+    if (!sesionIniciada || sesionFinalizada) return;
+
+    const { data } = await supabase
+      .from("alumnos")
+      .select("entregado")
+      .eq("sesion_codigo", codigoSesion);
+
+    if (data && data.length > 0) {
+      const todos = data.every((alumno) => alumno.entregado === true);
+      
+      if (todos && !todosEntregaron) {
+        console.log("✅ Todos los alumnos entregaron, finalizando sesión...");
+        setTodosEntregaron(true);
+        await finalizarSesion(true);
+      }
+    }
   };
 
   useEffect(() => {
@@ -63,7 +92,7 @@ export default function SalaProfesor({
 
       const sesion = data as Sesion | null;
 
-      if (sesion?.activa && !sesionIniciada) {
+      if (sesion?.activa && !sesionIniciada && !sesionFinalizada) {
         setSesionIniciada(true);
 
         if (sesion.activada_en && sesion.tiempo_limite) {
@@ -81,8 +110,9 @@ export default function SalaProfesor({
 
       if (!sesion?.activa && sesionIniciada) {
         setSesionIniciada(false);
-        activarToast();
+        setSesionFinalizada(true);
         if (countdownRef.current) clearInterval(countdownRef.current);
+        if (verificarEntregasRef.current) clearInterval(verificarEntregasRef.current);
       }
 
       setVerificandoEstado(false);
@@ -98,8 +128,26 @@ export default function SalaProfesor({
 
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      if (verificarEntregasRef.current) clearInterval(verificarEntregasRef.current);
     };
   }, []);
+
+  // Iniciar el polling de verificación de entregas cuando la sesión comienza
+  useEffect(() => {
+    if (sesionIniciada && !sesionFinalizada) {
+      // Verificar inmediatamente
+      verificarSiTodosEntregaron();
+      // Luego cada 1 segundo
+      verificarEntregasRef.current = window.setInterval(() => {
+        verificarSiTodosEntregaron();
+      }, 1000);
+    }
+
+    return () => {
+      if (verificarEntregasRef.current) clearInterval(verificarEntregasRef.current);
+    };
+  }, [sesionIniciada, sesionFinalizada]);
 
   const iniciarCountdown = (inicio: number) => {
     if (countdownRef.current) clearInterval(countdownRef.current);
@@ -135,8 +183,9 @@ export default function SalaProfesor({
     iniciarCountdown(tiempo * 60);
   };
 
-  const finalizarSesion = async () => {
+  const finalizarSesion = async (automatico = false) => {
     if (countdownRef.current) clearInterval(countdownRef.current);
+    if (verificarEntregasRef.current) clearInterval(verificarEntregasRef.current);
 
     await supabase
       .from("sesiones")
@@ -147,11 +196,56 @@ export default function SalaProfesor({
       .eq("codigo", codigoSesion);
 
     setSesionIniciada(false);
-    activarToast();
+    setSesionFinalizada(true);
   };
 
   const formatear = (s: number) =>
     `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+
+  // Pantalla de sesión finalizada
+  if (sesionFinalizada) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#eef6fb] px-4">
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-sm border border-slate-100 p-8 text-center space-y-5">
+          
+          {/* Icono */}
+          <div className="w-20 h-20 mx-auto bg-green-100 rounded-full flex items-center justify-center">
+            <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+
+          {/* Título */}
+          <h2 className="text-2xl font-bold text-[#1e3a5f]">
+            ¡Sesión finalizada!
+          </h2>
+
+          <p className="text-slate-500">
+            {todosEntregaron 
+              ? "Todos los alumnos han completado sus respuestas." 
+              : "El tiempo de la sesión ha terminado."}
+          </p>
+
+          {/* Resumen */}
+          <div className="bg-slate-50 rounded-xl p-4 space-y-2">
+            <p className="text-sm text-slate-500">Código de sesión</p>
+            <p className="text-xl font-bold tracking-widest text-[#1e3a5f]">{codigoSesion}</p>
+            <hr className="my-2" />
+            <p className="text-sm text-slate-500">Alumnos que respondieron</p>
+            <p className="text-lg font-semibold text-green-600">{alumnos.filter(a => a.entregado).length} de {alumnos.length}</p>
+          </div>
+
+          {/* Botón volver */}
+          <button
+            onClick={handleVolver}
+            className="w-full py-3 rounded-2xl bg-[#7bb6ff] text-white font-medium hover:bg-[#5fa4f0] transition"
+          >
+            ← Volver al panel
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (verificandoEstado) {
     return (
@@ -241,11 +335,11 @@ export default function SalaProfesor({
 
                   {a.entregado ? (
                     <span className="text-xs font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full">
-                      Entregado
+                      ✅ Entregado
                     </span>
                   ) : (
                     <span className="text-xs font-semibold text-yellow-600 bg-yellow-50 px-3 py-1 rounded-full">
-                      Pendiente
+                      ⏳ Pendiente
                     </span>
                   )}
                 </li>
@@ -254,48 +348,30 @@ export default function SalaProfesor({
           )}
         </div>
 
-        <div className="flex gap-3">
-          {!sesionIniciada && (
-            <button
-              onClick={iniciarSesion}
-              disabled={alumnos.length === 0 || cargando}
-              className="flex-1 py-3 rounded-2xl bg-[#7bb6ff] text-white font-medium hover:bg-[#5fa4f0] transition disabled:opacity-40"
-            >
-              {cargando ? "Iniciando..." : "Iniciar"}
-            </button>
-          )}
+        {/* Botones - solo mostrar si la sesión no ha finalizado */}
+        {!sesionFinalizada && (
+          <div className="flex gap-3">
+            {!sesionIniciada && (
+              <button
+                onClick={iniciarSesion}
+                disabled={alumnos.length === 0 || cargando}
+                className="flex-1 py-3 rounded-2xl bg-[#7bb6ff] text-white font-medium hover:bg-[#5fa4f0] transition disabled:opacity-40"
+              >
+                {cargando ? "Iniciando..." : "🚀 Iniciar sesión"}
+              </button>
+            )}
 
-          {sesionIniciada && (
-            <button
-              onClick={finalizarSesion}
-              className="flex-1 py-3 rounded-2xl bg-red-500 text-white font-medium hover:bg-red-600 transition"
-            >
-              Finalizar
-            </button>
-          )}
-        </div>
-      </div>
-
-        {mostrarToast && (
-          <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 animate-[slideDown_0.35s_ease]">
-            <div className="bg-white border border-slate-100 shadow-lg rounded-2xl px-5 py-3 flex items-center gap-3 min-w-[260px]">
-
-              <div className="w-10 h-10 bg-[#eef6ff] rounded-xl flex items-center justify-center">
-                <img src={dienteLike} className="w-6 h-6 object-contain" />
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-[#1e3a5f]">
-                  Sesión finalizada
-                </p>
-                <p className="text-xs text-slate-400">
-                  Los alumnos ya no pueden responder
-                </p>
-              </div>
-
-            </div>
+            {sesionIniciada && (
+              <button
+                onClick={() => finalizarSesion(false)}
+                className="flex-1 py-3 rounded-2xl bg-red-500 text-white font-medium hover:bg-red-600 transition"
+              >
+                ⏹️ Finalizar sesión
+              </button>
+            )}
           </div>
         )}
       </div>
+    </div>
   );
 }

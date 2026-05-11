@@ -29,7 +29,19 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
   const [enviando, setEnviando] = useState<boolean>(false);
   const [enviado, setEnviado] = useState<boolean>(false);
   const [cargando, setCargando] = useState<boolean>(true);
+  const [error, setError] = useState<string>("");
   const pollingRef = useRef<number | null>(null);
+
+  // Verificar si todas las preguntas están respondidas
+  const todasRespondidas = (): boolean => {
+    for (const pregunta of preguntas) {
+      const respuesta = respuestas[pregunta.id];
+      if (!respuesta || respuesta.trim() === "") {
+        return false;
+      }
+    }
+    return true;
+  };
 
   useEffect(() => {
     const cargarDatosSesion = async () => {
@@ -134,6 +146,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
     if (enviado) return;
     
     setEnviando(true);
+    setError("");
 
     console.log("Guardando respuestas para alumno:", alumnoId);
     console.log("Respuestas a guardar:", respuestas);
@@ -149,13 +162,13 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
 
         if (error) {
           console.error("Error al guardar respuesta:", error);
+          setError("Error al guardar algunas respuestas");
         } else {
           console.log("Respuesta guardada:", data);
         }
       }
     }
 
-    // Marcar que el alumno entregó (podemos agregar un campo 'entregado' en la tabla alumnos)
     const { error: updateError } = await supabase
       .from("alumnos")
       .update({ entregado: true })
@@ -176,15 +189,33 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
       ...respuestas,
       [preguntaActual.id]: valor,
     });
+    // Limpiar error cuando el usuario empieza a escribir
+    if (error) setError("");
   };
 
   const siguientePregunta = () => {
+    // Validar que la pregunta actual esté respondida
+    const preguntaActual = preguntas[indicePregunta];
+    const respuestaActual = respuestas[preguntaActual.id];
+    
+    if (!respuestaActual || respuestaActual.trim() === "") {
+      setError("Por favor responde esta pregunta antes de continuar");
+      return;
+    }
+    
+    setError("");
     if (indicePregunta < preguntas.length - 1) {
       setIndicePregunta(indicePregunta + 1);
     }
   };
 
   const enviarRespuestas = async () => {
+    // Validar que todas las preguntas estén respondidas
+    if (!todasRespondidas()) {
+      setError("Por favor responde todas las preguntas antes de enviar");
+      return;
+    }
+    
     await guardarRespuestasEnBD();
     setTiempoFinalizado(true);
     if (pollingRef.current) clearInterval(pollingRef.current);
@@ -211,7 +242,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f7fbfd] px-4">
         <div className="text-center bg-white rounded-2xl p-8 max-w-md">
-          <h2 className="text-2xl font-semibold text-[#1e3a5f] mb-4">Tiempo finalizado</h2>
+          <h2 className="text-2xl font-semibold text-[#1e3a5f] mb-4">⏰ Tiempo finalizado</h2>
           <p className="text-slate-600 mb-2">Gracias por participar, {nombre}.</p>
           <p className="text-slate-600 mb-2">Tus respuestas han sido enviadas al profesor.</p>
           <p className="text-slate-600 mb-6">Los resultados te llegarán a: <strong>{email}</strong></p>
@@ -227,7 +258,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f7fbfd] px-4">
         <div className="text-center bg-white rounded-2xl p-8">
-          <h2 className="text-xl font-semibold text-red-500 mb-4">No hay preguntas</h2>
+          <h2 className="text-xl font-semibold text-red-500 mb-4">⚠️ No hay preguntas</h2>
           <p className="text-slate-600 mb-4">El profesor aún no ha configurado las preguntas para esta sesión.</p>
           <button onClick={() => window.location.reload()} className="px-6 py-2 bg-[#9ecbff] rounded-xl">Volver al inicio</button>
         </div>
@@ -263,13 +294,21 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
           className="w-full p-3 border border-[#cfeaf6] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#9ecbff] mb-4"
         />
 
+        {error && (
+          <p className="text-red-500 text-sm mb-4 text-center">{error}</p>
+        )}
+
         {!esUltima ? (
           <button onClick={siguientePregunta} className="w-full py-3 bg-[#9ecbff] text-[#1e3a5f] rounded-xl hover:bg-[#81b0d6] transition">
             Siguiente pregunta →
           </button>
         ) : (
-          <button onClick={enviarRespuestas} disabled={enviando} className="w-full py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 transition disabled:opacity-50">
-            {enviando ? "Enviando..." : "Enviar respuestas"}
+          <button 
+            onClick={enviarRespuestas} 
+            disabled={enviando}
+            className="w-full py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 transition disabled:opacity-50"
+          >
+            {enviando ? "Enviando..." : "📤 Enviar respuestas"}
           </button>
         )}
       </div>

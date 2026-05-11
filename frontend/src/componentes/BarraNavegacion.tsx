@@ -4,16 +4,14 @@ import logo from "../assets/img/tooth.svg";
 
 interface Props {
   onNavigate: (vista: string) => void;
-  vistaActual: string;
-  onVolver: () => void;
   sesionIniciada?: boolean;
+  vistaActual: string;
 }
 
 export default function BarraNavegacion({
   onNavigate,
-  vistaActual,
-  onVolver,
-  sesionIniciada = false
+  sesionIniciada = false,
+  vistaActual
 }: Props) {
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
   const [scrollY, setScrollY] = useState(0);
@@ -34,16 +32,12 @@ export default function BarraNavegacion({
     setCerrandoSesion(false);
   };
 
-  const mostrarVolver = vistaActual !== "seleccion";
-
-  // 🔥 PROGRESO DE ANIMACIÓN (0 → 1)
   const progress = Math.min(scrollY / 80, 1);
 
-  // 🎯 INTERPOLACIONES
-  const logoScale = 1 - 0.25 * progress; // se achica
-  const logoOpacity = 1 - progress; // se desvanece
+  const logoScale = 1 - 0.25 * progress;
+  const logoOpacity = 1 - progress;
   const textOpacity = progress;
-  const textTranslate = 8 * (1 - progress); // baja un poco al aparecer
+  const textTranslate = 8 * (1 - progress);
 
   return (
     <nav
@@ -63,39 +57,18 @@ export default function BarraNavegacion({
         WebkitBackdropFilter: "blur(20px) saturate(180%)",
       }}
     >
-      {/* Borde degradado */}
       <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-slate-300/60 to-transparent" />
 
-      {/* Volver */}
-      {mostrarVolver && (
-        <button
-          onClick={onVolver}
-          className="
-            absolute left-6
-            px-4 py-2 rounded-lg text-sm font-medium
-            bg-white/60 backdrop-blur-md
-            text-gray-700
-            hover:bg-white/80
-            transition-all duration-200
-          "
-        >
-          ← Volver
-        </button>
-      )}
-
-      {/* Centro */}
+      {/* Logo centrado - sin función, solo decorativo */}
       <div
         className="
           absolute left-1/2 top-1/2
           -translate-x-1/2 -translate-y-1/2
           flex items-center justify-center
+          pointer-events-none
         "
       >
-        <button
-          onClick={() => onNavigate("seleccion")}
-          className="relative flex items-center justify-center"
-        >
-          {/* LOGO */}
+        <div className="relative flex items-center justify-center">
           <img
             src={logo}
             alt="OdontoAI"
@@ -107,7 +80,6 @@ export default function BarraNavegacion({
             }}
           />
 
-          {/* TEXTO */}
           <span
             style={{
               opacity: textOpacity,
@@ -118,10 +90,10 @@ export default function BarraNavegacion({
           >
             OdontoAI
           </span>
-        </button>
+        </div>
       </div>
 
-      {/* Logout */}
+      {/* Botón cerrar sesión - solo aparece cuando hay sesión activa */}
       {sesionIniciada && (
         <button
           onClick={handleLogout}

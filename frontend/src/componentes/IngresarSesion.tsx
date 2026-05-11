@@ -9,7 +9,11 @@ interface SesionData {
   tiempo_limite: number | null;
 }
 
-export default function IngresarSesion() {
+interface Props {
+  onVolver?: () => void;
+}
+
+export default function IngresarSesion({ onVolver }: Props) {
   const [nombre, setNombre] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [codigoSesion, setCodigoSesion] = useState<string>("");
@@ -25,6 +29,10 @@ export default function IngresarSesion() {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, []);
+
+  const handleVolver = () => {
+    window.location.reload();
+  };
 
   const unirseASesion = async () => {
     if (!nombre.trim()) return setError("Ingresa tu nombre");
@@ -114,11 +122,18 @@ export default function IngresarSesion() {
     );
   }
 
-  // SALA DE ESPERA (🔥 nueva versión limpia)
+  // SALA DE ESPERA
   if (esperandoInicio) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#eef6fb] px-4">
-        <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-sm border border-slate-100 text-center space-y-5">
+        <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-sm border border-slate-100 text-center space-y-5 relative">
+          {/* Botón Volver - esquina superior izquierda */}
+          <button
+            onClick={handleVolver}
+            className="absolute top-4 left-4 text-sm text-slate-500 hover:text-[#1e3a5f] transition flex items-center gap-1 bg-white/80 px-3 py-1.5 rounded-lg shadow-sm"
+          >
+            ← Volver
+          </button>
 
           {/* ICONO */}
           <div className="w-16 h-16 mx-auto bg-[#eef6ff] rounded-2xl flex items-center justify-center animate-pulse">
@@ -160,8 +175,15 @@ export default function IngresarSesion() {
   // FORMULARIO
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#eef6fb] px-4">
-
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-sm border border-slate-100 p-8 space-y-5">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-sm border border-slate-100 p-8 space-y-5 relative">
+        
+        {/* Botón Volver - esquina superior izquierda */}
+        <button
+          onClick={handleVolver}
+          className="absolute top-4 left-4 text-sm text-slate-500 hover:text-[#1e3a5f] transition flex items-center gap-1 bg-white/80 px-3 py-1.5 rounded-lg shadow-sm"
+        >
+          ← Volver
+        </button>
 
         {/* ICONO */}
         <div className="w-14 h-14 mx-auto bg-[#eef6ff] rounded-2xl flex items-center justify-center">
@@ -205,7 +227,7 @@ export default function IngresarSesion() {
           <p className="text-red-500 text-sm text-center">{error}</p>
         )}
 
-        {/* BOTÓN */}
+        {/* BOTÓN INGRESAR */}
         <button
           onClick={unirseASesion}
           disabled={cargando}
