@@ -12,6 +12,8 @@ interface Pregunta {
   id: string;
   texto: string;
   orden: number;
+  tipo: "texto" | "multiple";
+  opciones?: string[];
 }
 
 interface Sesion {
@@ -24,6 +26,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
   const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
   const [indicePregunta, setIndicePregunta] = useState<number>(0);
   const [respuestas, setRespuestas] = useState<{ [preguntaId: string]: string }>({});
+  const [respuestasOpcion, setRespuestasOpcion] = useState<{ [preguntaId: string]: number }>({});
   const [tiempoRestante, setTiempoRestante] = useState<number | null>(null);
   const [tiempoFinalizado, setTiempoFinalizado] = useState<boolean>(false);
   const [enviando, setEnviando] = useState<boolean>(false);
@@ -31,6 +34,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
   const [cargando, setCargando] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
   const pollingRef = useRef<number | null>(null);
+  const respuestasEnviadasRef = useRef<boolean>(false);
 
   // Verificar si todas las preguntas están respondidas
   const todasRespondidas = (): boolean => {
@@ -118,8 +122,10 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
 
       if (!sesion || sesion.activa !== true) {
         if (pollingRef.current) clearInterval(pollingRef.current);
-        setTiempoFinalizado(true);
-        guardarRespuestasEnBD();
+        if (!respuestasEnviadasRef.current) {
+          setTiempoFinalizado(true);
+          guardarRespuestasEnBD();
+        }
         return;
       }
 
@@ -130,7 +136,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
         const restante = Math.max(0, sesion.tiempo_limite - segundosTranscurridos);
         setTiempoRestante(restante);
 
-        if (restante <= 0 && !tiempoFinalizado) {
+        if (restante <= 0 && !tiempoFinalizado && !respuestasEnviadasRef.current) {
           setTiempoFinalizado(true);
           guardarRespuestasEnBD();
         }
@@ -143,29 +149,78 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
   }, [codigoSesion]);
 
   const guardarRespuestasEnBD = async () => {
-    if (enviado) return;
+    // Evitar envíos duplicados
+    if (enviado || respuestasEnviadasRef.current) return;
     
+    respuestasEnviadasRef.current = true;
     setEnviando(true);
     setError("");
 
     console.log("Guardando respuestas para alumno:", alumnoId);
-    console.log("Respuestas a guardar:", respuestas);
+    console.log("Respuestas texto:", respuestas);
+    console.log("Respuestas opciones:", respuestasOpcion);
 
+    // Guardar respuestas de texto
     for (const [preguntaId, respuestaTexto] of Object.entries(respuestas)) {
       if (respuestaTexto && respuestaTexto.trim()) {
-        const { data, error } = await supabase.from("respuestas_alumnos").insert([{
+        // Verificar si ya existe respuesta para esta pregunta
+        const { data: existe } = await supabase
+          .from("respuestas_alumnos")
+          .select("id")
+          .eq("alumno_id", alumnoId)
+          .eq("pregunta_id", preguntaId)
+          .maybeSingle();
+
+        if (!existe) {
+          const { error } = await supabase.from("respuestas_alumnos").insert([{
+            alumno_id: alumnoId,
+            pregunta_id: preguntaId,
+            respuesta: respuestaTexto,
+            respondido_en: new Date().toISOString(),
+          }]);
+
+          if (error) {
+            console.error("Error al guardar respuesta:", error);
+            setError("Error al guardar algunas respuestas");
+          } else {
+            console.log("Respuesta guardada:", preguntaId);
+          }
+        } else {
+          console.log("Respuesta ya existe, omitiendo:", preguntaId);
+        }
+      }
+    }
+
+    // Guardar respuestas de opción múltiple
+    for (const [preguntaId, opcionIndex] of Object.entries(respuestasOpcion)) {
+      // Verificar si ya existe respuesta para esta pregunta
+      const { data: existe } = await supabase
+        .from("respuestas_alumnos")
+        .select("id")
+        .eq("alumno_id", alumnoId)
+        .eq("pregunta_id", preguntaId)
+        .maybeSingle();
+
+      if (!existe) {
+        const pregunta = preguntas.find(p => p.id === preguntaId);
+        const opcionTexto = pregunta?.opciones?.[opcionIndex] || "";
+        
+        const { error } = await supabase.from("respuestas_alumnos").insert([{
           alumno_id: alumnoId,
           pregunta_id: preguntaId,
-          respuesta: respuestaTexto,
+          respuesta: opcionTexto,
+          opcion_seleccionada: opcionIndex,
           respondido_en: new Date().toISOString(),
-        }]).select();
+        }]);
 
         if (error) {
-          console.error("Error al guardar respuesta:", error);
+          console.error("Error al guardar respuesta múltiple:", error);
           setError("Error al guardar algunas respuestas");
         } else {
-          console.log("Respuesta guardada:", data);
+          console.log("Respuesta múltiple guardada:", preguntaId);
         }
+      } else {
+        console.log("Respuesta múltiple ya existe, omitiendo:", preguntaId);
       }
     }
 
@@ -182,19 +237,31 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
     setEnviando(false);
   };
 
-  const guardarRespuesta = (valor: string) => {
+  const guardarRespuestaTexto = (valor: string) => {
     if (preguntas.length === 0) return;
     const preguntaActual = preguntas[indicePregunta];
     setRespuestas({
       ...respuestas,
       [preguntaActual.id]: valor,
     });
-    // Limpiar error cuando el usuario empieza a escribir
+    if (error) setError("");
+  };
+
+  const guardarRespuestaMultiple = (opcionIndex: number, opcionTexto: string) => {
+    if (preguntas.length === 0) return;
+    const preguntaActual = preguntas[indicePregunta];
+    setRespuestas({
+      ...respuestas,
+      [preguntaActual.id]: opcionTexto,
+    });
+    setRespuestasOpcion({
+      ...respuestasOpcion,
+      [preguntaActual.id]: opcionIndex,
+    });
     if (error) setError("");
   };
 
   const siguientePregunta = () => {
-    // Validar que la pregunta actual esté respondida
     const preguntaActual = preguntas[indicePregunta];
     const respuestaActual = respuestas[preguntaActual.id];
     
@@ -210,9 +277,13 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
   };
 
   const enviarRespuestas = async () => {
-    // Validar que todas las preguntas estén respondidas
     if (!todasRespondidas()) {
       setError("Por favor responde todas las preguntas antes de enviar");
+      return;
+    }
+    
+    if (enviado || respuestasEnviadasRef.current) {
+      console.log("Respuestas ya enviadas, ignorando");
       return;
     }
     
@@ -283,30 +354,50 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
 
         <hr className="my-4" />
 
-        <h3 className="text-lg font-semibold text-[#1e3a5f] mb-2">Pregunta {indicePregunta + 1} de {preguntas.length}</h3>
+        <h3 className="text-lg font-semibold text-[#1e3a5f] mb-2">
+          Pregunta {indicePregunta + 1} de {preguntas.length}
+        </h3>
         <p className="text-slate-700 text-lg mb-4">{preguntaActual.texto}</p>
 
-        <textarea
-          rows={6}
-          placeholder="Escribe tu respuesta aquí..."
-          value={respuestas[preguntaActual.id] || ""}
-          onChange={(e) => guardarRespuesta(e.target.value)}
-          className="w-full p-3 border border-[#cfeaf6] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#9ecbff] mb-4"
-        />
+        {preguntaActual.tipo === "multiple" ? (
+          <div className="space-y-3 mb-4">
+            {preguntaActual.opciones?.map((opcion, optIdx) => (
+              <label key={optIdx} className="flex items-center gap-3 p-3 border border-[#cfeaf6] rounded-xl cursor-pointer hover:bg-[#f0f8ff] transition">
+                <input
+                  type="radio"
+                  name={`pregunta_${preguntaActual.id}`}
+                  value={opcion}
+                  checked={respuestas[preguntaActual.id] === opcion}
+                  onChange={() => guardarRespuestaMultiple(optIdx, opcion)}
+                  className="w-4 h-4 text-[#9ecbff] focus:ring-[#9ecbff]"
+                />
+                <span className="text-slate-700">{opcion}</span>
+              </label>
+            ))}
+          </div>
+        ) : (
+          <textarea
+            rows={6}
+            placeholder="Escribe tu respuesta aquí..."
+            value={respuestas[preguntaActual.id] || ""}
+            onChange={(e) => guardarRespuestaTexto(e.target.value)}
+            className="w-full p-3 border border-[#cfeaf6] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#9ecbff] mb-4"
+          />
+        )}
 
         {error && (
           <p className="text-red-500 text-sm mb-4 text-center">{error}</p>
         )}
 
         {!esUltima ? (
-          <button onClick={siguientePregunta} className="w-full py-3 bg-[#9ecbff] text-[#1e3a5f] rounded-xl hover:bg-[#81b0d6] transition">
+          <button onClick={siguientePregunta} className="w-full py-3 bg-[#9ecbff] text-[#1e3a5f] rounded-xl hover:bg-[#81b0d6] transition font-medium">
             Siguiente pregunta →
           </button>
         ) : (
           <button 
             onClick={enviarRespuestas} 
             disabled={enviando}
-            className="w-full py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 transition disabled:opacity-50"
+            className="w-full py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 transition disabled:opacity-50 font-medium"
           >
             {enviando ? "Enviando..." : "📤 Enviar respuestas"}
           </button>

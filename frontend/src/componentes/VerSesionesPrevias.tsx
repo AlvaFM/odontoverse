@@ -25,11 +25,14 @@ interface Alumno {
 interface Respuesta {
   id: string;
   respuesta: string;
+  opcion_seleccionada: number | null;
   respondido_en: string;
   pregunta: {
     id: string;
     texto: string;
     orden: number;
+    tipo: string;
+    opciones?: string[];
   } | null;
 }
 
@@ -70,16 +73,13 @@ export default function VerSesionesPrevias({ profesorEmail, onVolver }: Props) {
 
     if (alumnosData) {
       setAlumnos(alumnosData as Alumno[]);
-      console.log("Alumnos cargados:", alumnosData.map(a => ({ nombre: a.nombre, entregado: a.entregado })));
     }
   };
 
   const verRespuestasAlumno = async (alumno: Alumno) => {
     setAlumnoSeleccionado(alumno);
     
-    console.log("Buscando respuestas para alumno:", alumno.id);
-    
-    // Obtener respuestas del alumno sin usar nested select
+    // Obtener respuestas del alumno
     const { data: respuestasData, error: errorRespuestas } = await supabase
       .from("respuestas_alumnos")
       .select("*")
@@ -90,8 +90,6 @@ export default function VerSesionesPrevias({ profesorEmail, onVolver }: Props) {
       setRespuestas([]);
       return;
     }
-
-    console.log("Respuestas encontradas:", respuestasData);
 
     if (respuestasData && respuestasData.length > 0) {
       // Obtener todas las preguntas de una vez
@@ -106,16 +104,31 @@ export default function VerSesionesPrevias({ profesorEmail, onVolver }: Props) {
       preguntasData?.forEach(p => preguntasMap.set(p.id, p));
 
       // Formatear respuestas con sus preguntas
-      const respuestasFormateadas: Respuesta[] = respuestasData.map(resp => ({
-        id: resp.id,
-        respuesta: resp.respuesta,
-        respondido_en: resp.respondido_en,
-        pregunta: preguntasMap.get(resp.pregunta_id) || {
-          id: resp.pregunta_id,
-          texto: "Pregunta no encontrada",
-          orden: 0
+      const respuestasFormateadas: Respuesta[] = respuestasData.map(resp => {
+        const pregunta = preguntasMap.get(resp.pregunta_id);
+        let respuestaMostrar = resp.respuesta;
+        
+        // Si es pregunta múltiple y tiene opcion_seleccionada, mostrar la opción correcta
+        if (pregunta?.tipo === "multiple" && resp.opcion_seleccionada !== null && resp.opcion_seleccionada !== undefined) {
+          const opciones = pregunta.opciones as string[];
+          if (opciones && opciones[resp.opcion_seleccionada]) {
+            respuestaMostrar = opciones[resp.opcion_seleccionada];
+          }
         }
-      }));
+        
+        return {
+          id: resp.id,
+          respuesta: respuestaMostrar,
+          opcion_seleccionada: resp.opcion_seleccionada,
+          respondido_en: resp.respondido_en,
+          pregunta: pregunta || {
+            id: resp.pregunta_id,
+            texto: "Pregunta no encontrada",
+            orden: 0,
+            tipo: "texto"
+          }
+        };
+      });
 
       // Ordenar por orden de pregunta
       respuestasFormateadas.sort((a, b) => {
@@ -155,9 +168,9 @@ export default function VerSesionesPrevias({ profesorEmail, onVolver }: Props) {
             <p className="text-slate-500">{alumnoSeleccionado.email}</p>
             <p className="text-slate-500 text-sm">Sesión: {sesionSeleccionada?.codigo}</p>
             {alumnoSeleccionado.entregado ? (
-              <p className="text-green-600 text-sm mt-2">Entregado</p>
+              <p className="text-green-600 text-sm mt-2">✅ Entregado</p>
             ) : (
-              <p className="text-yellow-600 text-sm mt-2">Pendiente</p>
+              <p className="text-yellow-600 text-sm mt-2">⏳ Pendiente</p>
             )}
           </div>
 
@@ -166,9 +179,9 @@ export default function VerSesionesPrevias({ profesorEmail, onVolver }: Props) {
             
             {respuestas.length === 0 ? (
               <div>
-                <p className="text-red-500 mb-2">No se encontraron respuestas para este alumno.</p>
+                <p className="text-red-500 mb-2">⚠️ No se encontraron respuestas para este alumno.</p>
                 {alumnoSeleccionado.entregado && (
-                  <p className="text-slate-500">El alumno está marcado como "Entregado" pero no hay respuestas en la base de datos. Verifica la tabla respuestas_alumnos.</p>
+                  <p className="text-slate-500">El alumno está marcado como "Entregado" pero no hay respuestas en la base de datos.</p>
                 )}
               </div>
             ) : (
@@ -181,6 +194,11 @@ export default function VerSesionesPrevias({ profesorEmail, onVolver }: Props) {
                     <p className="text-slate-700 bg-[#f0f8ff] p-3 rounded-lg">
                       {resp.respuesta || "Sin respuesta"}
                     </p>
+                    {resp.pregunta?.tipo === "multiple" && resp.opcion_seleccionada !== null && (
+                      <p className="text-xs text-slate-400 mt-1">
+                        Opción seleccionada: {resp.opcion_seleccionada + 1}
+                      </p>
+                    )}
                     <p className="text-xs text-slate-400 mt-1">
                       Respondido: {new Date(resp.respondido_en).toLocaleString()}
                     </p>
