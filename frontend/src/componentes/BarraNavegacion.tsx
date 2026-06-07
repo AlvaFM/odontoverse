@@ -49,13 +49,19 @@ export default function BarraNavegacion({
         border-b border-white/30
         transition-all duration-300
       "
-      style={{
-        paddingTop: `${40 - progress * 10}px`,
-        paddingBottom: `${40 - progress * 10}px`,
-        background: `rgba(255,255,255,${0.6 + progress * 0.2})`,
-        backdropFilter: "blur(20px) saturate(180%)",
-        WebkitBackdropFilter: "blur(20px) saturate(180%)",
-      }}
+    style={{
+      paddingTop: `${40 - progress * 10}px`,
+      paddingBottom: `${40 - progress * 10}px`,
+      background: `
+        linear-gradient(
+          135deg,
+          rgba(141, 226, 247, ${0.9 + progress * 0.05}) 0%,
+          rgba(203, 213, 225, ${0.85 + progress * 0.1}) 100%
+        )
+      `,
+      backdropFilter: "blur(20px) saturate(180%)",
+      WebkitBackdropFilter: "blur(20px) saturate(180%)",
+    }}
     >
       <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-slate-300/60 to-transparent" />
 

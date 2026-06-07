@@ -44,6 +44,8 @@ export default function SeleccionModo({ onNavigate }: Props) {
         <h1 className="text-3xl md:text-4xl font-semibold text-[#1e3a5f]">
           Bienvenido a OdontoAI
         </h1>
+        <h5 className="text-slate-500 mt-2 text-base md:text-lg">Donde podrás fusionar el análisis con IA 
+          junto a herramientas interactivas de estudio</h5>
         <p className="text-slate-500 mt-2 text-base md:text-lg">
           Selecciona un modo
         </p>

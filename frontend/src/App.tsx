@@ -20,7 +20,11 @@ function App() {
   const [codigoSesion, setCodigoSesion] = useState("");
   const [diagnostico, setDiagnostico] = useState("");
   const [confianza, setConfianza] = useState(0);
-  const [preguntas, setPreguntas] = useState<string[]>([]);
+  const [preguntas, setPreguntas] = useState<{
+    texto: string;
+    tipo: string;
+    opciones?: string[];
+  }[]>([]);
   const [tiempo, setTiempo] = useState(10);
 
   useEffect(() => {
@@ -153,7 +157,7 @@ function App() {
         vistaActual={vista}
       />
 
-      <div style={{ padding: "20px" }}>
+      <div style={{ padding: "0px" }}>
         {renderVista()}
       </div>
     </div>
