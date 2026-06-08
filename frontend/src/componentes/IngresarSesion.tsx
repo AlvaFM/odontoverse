@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import VistaAlumno from "./VistaAlumno";
 import dienteLike from "../assets/img/dientelike.png";
+import dinoImagen from "../assets/img/dinoimagen.avif";
 
 interface SesionData {
   codigo: string;
@@ -174,10 +175,13 @@ export default function IngresarSesion({ onVolver }: Props) {
 
   // FORMULARIO
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#eef6fb] px-4">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-sm border border-slate-100 p-8 space-y-5 relative">
-        
-        {/* Botón Volver - esquina superior izquierda */}
+  <div className="min-h-screen flex bg-[#eef6fb]">
+
+    {/* PANEL IZQUIERDO */}
+    <div className="w-full lg:w-1/2 flex items-center justify-center px-6">
+
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-8 relative">
+
         <button
           onClick={handleVolver}
           className="absolute top-4 left-4 text-sm text-slate-500 hover:text-[#1e3a5f] transition flex items-center gap-1 bg-white/80 px-3 py-1.5 rounded-lg shadow-sm"
@@ -185,24 +189,37 @@ export default function IngresarSesion({ onVolver }: Props) {
           ← Volver
         </button>
 
-        {/* ICONO */}
-        <div className="w-14 h-14 mx-auto bg-[#eef6ff] rounded-2xl flex items-center justify-center">
-          <img src={dienteLike} className="w-9 h-9 object-contain" />
+        <div className="w-14 h-14 mx-auto bg-[#eef6ff] rounded-2xl flex items-center justify-center mb-4">
+          <img
+            src={dienteLike}
+            alt="Logo"
+            className="w-9 h-9 object-contain"
+          />
         </div>
 
-        {/* TITULO */}
-        <h2 className="text-lg font-semibold text-[#1e3a5f] text-center">
+        <h2 className="text-2xl font-semibold text-center text-[#1e3a5f] mb-2">
           Unirse a sesión
         </h2>
 
-        {/* INPUTS */}
-        <div className="space-y-3">
+        <p className="text-center text-slate-500 mb-6 text-sm">
+          Ingresa tus datos para participar
+        </p>
+
+        <div className="space-y-4">
+
           <input
             type="text"
             placeholder="Nombre completo"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl bg-[#f7fbfd] border border-[#d6eaf3] focus:outline-none focus:ring-2 focus:ring-[#9ecbff]"
+            className="
+              w-full px-4 py-3 rounded-xl
+              border border-slate-200
+              focus:outline-none
+              focus:ring-2
+              focus:ring-[#9ecbff]
+              text-sm
+            "
           />
 
           <input
@@ -210,32 +227,71 @@ export default function IngresarSesion({ onVolver }: Props) {
             placeholder="Correo electrónico"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl bg-[#f7fbfd] border border-[#d6eaf3] focus:outline-none focus:ring-2 focus:ring-[#9ecbff]"
+            className="
+              w-full px-4 py-3 rounded-xl
+              border border-slate-200
+              focus:outline-none
+              focus:ring-2
+              focus:ring-[#9ecbff]
+              text-sm
+            "
           />
 
           <input
             type="text"
             placeholder="Código de sesión"
             value={codigoSesion}
-            onChange={(e) => setCodigoSesion(e.target.value.toUpperCase())}
-            className="w-full px-4 py-3 rounded-xl bg-[#f7fbfd] border border-[#d6eaf3] focus:outline-none focus:ring-2 focus:ring-[#9ecbff] tracking-widest text-center font-semibold"
+            onChange={(e) =>
+              setCodigoSesion(e.target.value.toUpperCase())
+            }
+            className="
+              w-full px-4 py-3 rounded-xl
+              border border-slate-200
+              focus:outline-none
+              focus:ring-2
+              focus:ring-[#9ecbff]
+              text-sm text-center tracking-widest font-semibold
+            "
           />
+
+          {error && (
+            <p className="text-red-500 text-sm text-center">
+              {error}
+            </p>
+          )}
+
+          <button
+            onClick={unirseASesion}
+            disabled={cargando}
+            className="
+              w-full py-3 rounded-xl
+              text-sm font-medium
+              bg-[#9ecbff]
+              text-[#1e3a5f]
+              hover:bg-[#81b0d6]
+              transition-all duration-200
+              disabled:opacity-60
+            "
+          >
+            {cargando ? "Verificando..." : "Ingresar"}
+          </button>
+
         </div>
-
-        {/* ERROR */}
-        {error && (
-          <p className="text-red-500 text-sm text-center">{error}</p>
-        )}
-
-        {/* BOTÓN INGRESAR */}
-        <button
-          onClick={unirseASesion}
-          disabled={cargando}
-          className="w-full py-3 rounded-2xl bg-[#7bb6ff] text-white font-medium hover:bg-[#5fa4f0] transition disabled:opacity-40"
-        >
-          {cargando ? "Verificando..." : "Ingresar"}
-        </button>
       </div>
     </div>
-  );
+
+    {/* PANEL DERECHO */}
+    <div className="hidden lg:block lg:w-1/2 relative overflow-hidden">
+
+      <img
+        src={dinoImagen}
+        alt="Dino"
+        className="absolute inset-0 w-full h-full object-cover opacity-50 scale-105"
+      />
+
+      <div className="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-[#eef6fb]" />
+    </div>
+
+  </div>
+);
 }

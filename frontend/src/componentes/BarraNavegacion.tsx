@@ -11,19 +11,27 @@ interface Props {
 export default function BarraNavegacion({
   onNavigate,
   sesionIniciada = false,
-  vistaActual
+  vistaActual,
 }: Props) {
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
   const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
+    if (vistaActual !== "seleccion") {
+      setScrollY(0);
+      return;
+    }
+
     const handleScroll = () => {
       setScrollY(window.scrollY);
     };
 
     window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, [vistaActual]);
 
   const handleLogout = async () => {
     setCerrandoSesion(true);
@@ -32,7 +40,10 @@ export default function BarraNavegacion({
     setCerrandoSesion(false);
   };
 
-  const progress = Math.min(scrollY / 80, 1);
+  const progress =
+    vistaActual === "seleccion"
+      ? Math.min(scrollY / 80, 1)
+      : 0;
 
   const logoScale = 1 - 0.25 * progress;
   const logoOpacity = 1 - progress;
@@ -42,30 +53,30 @@ export default function BarraNavegacion({
   return (
     <nav
       className="
-        sticky top-0 w-full z-50 relative
+        sticky top-0 w-full z-50
         flex items-center justify-end
         px-8
         backdrop-blur-xl
         border-b border-white/30
         transition-all duration-300
       "
-    style={{
-      paddingTop: `${40 - progress * 10}px`,
-      paddingBottom: `${40 - progress * 10}px`,
-      background: `
-        linear-gradient(
-          135deg,
-          rgba(141, 226, 247, ${0.9 + progress * 0.05}) 0%,
-          rgba(203, 213, 225, ${0.85 + progress * 0.1}) 100%
-        )
-      `,
-      backdropFilter: "blur(20px) saturate(180%)",
-      WebkitBackdropFilter: "blur(20px) saturate(180%)",
-    }}
+      style={{
+        paddingTop: `${40 - progress * 10}px`,
+        paddingBottom: `${40 - progress * 10}px`,
+        background: `
+          linear-gradient(
+            135deg,
+            rgba(141, 226, 247, ${0.9 + progress * 0.05}) 0%,
+            rgba(203, 213, 225, ${0.85 + progress * 0.1}) 100%
+          )
+        `,
+        backdropFilter: "blur(20px) saturate(180%)",
+        WebkitBackdropFilter: "blur(20px) saturate(180%)",
+      }}
     >
       <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-slate-300/60 to-transparent" />
 
-      {/* Logo centrado - sin función, solo decorativo */}
+      {/* Logo central */}
       <div
         className="
           absolute left-1/2 top-1/2
@@ -99,7 +110,7 @@ export default function BarraNavegacion({
         </div>
       </div>
 
-      {/* Botón cerrar sesión - solo aparece cuando hay sesión activa */}
+      {/* Botón cerrar sesión */}
       {sesionIniciada && (
         <button
           onClick={handleLogout}

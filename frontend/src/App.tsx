@@ -149,19 +149,27 @@ function App() {
     }
   };
 
-  return (
-    <div>
+return (
+  <div className="min-h-screen bg-[#eef6fb]">
+    {!["login", "ingresar"].includes(vista) && (
       <BarraNavegacion
         onNavigate={cambiarVista}
         sesionIniciada={sesionIniciada}
         vistaActual={vista}
       />
+    )}
 
-      <div style={{ padding: "0px" }}>
-        {renderVista()}
-      </div>
-    </div>
-  );
+    <main
+      style={{
+        paddingTop: !["login", "ingresar", "seleccion"].includes(vista)
+          ? "110px"
+          : "0px",
+      }}
+    >
+      {renderVista()}
+    </main>
+  </div>
+);
 }
 
 export default App;
