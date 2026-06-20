@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import dienteLike from "../assets/img/dientelike.png";
-import dinoImagen from "../assets/img/dinoimagen.avif";
+import dinoImagen from "../assets/img/wallpaperProfe.png";
 
 interface Props {
   onLoginSuccess: (email: string) => void;

@@ -13,7 +13,8 @@ interface Pregunta {
   texto: string;
   orden: number;
   tipo: "texto" | "multiple";
-  opciones?: string[];
+  opciones: string[];
+  respuesta_correcta: number | null;
 }
 
 interface Sesion {
@@ -33,10 +34,10 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
   const [enviado, setEnviado] = useState<boolean>(false);
   const [cargando, setCargando] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
+  const [resultados, setResultados] = useState<{ correctas: number; total: number; detalles: { preguntaId: string; correcta: boolean; opcionSeleccionada: string }[] } | null>(null);
   const pollingRef = useRef<number | null>(null);
   const respuestasEnviadasRef = useRef<boolean>(false);
 
-  // Verificar si todas las preguntas están respondidas
   const todasRespondidas = (): boolean => {
     for (const pregunta of preguntas) {
       const respuesta = respuestas[pregunta.id];
@@ -79,7 +80,8 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
 
         if (restante <= 0) {
           setTiempoFinalizado(true);
-          guardarRespuestasEnBD();
+          await guardarRespuestasEnBD();
+          await calcularResultados();
           setCargando(false);
           return;
         }
@@ -124,7 +126,8 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
         if (pollingRef.current) clearInterval(pollingRef.current);
         if (!respuestasEnviadasRef.current) {
           setTiempoFinalizado(true);
-          guardarRespuestasEnBD();
+          await guardarRespuestasEnBD();
+          await calcularResultados();
         }
         return;
       }
@@ -138,7 +141,8 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
 
         if (restante <= 0 && !tiempoFinalizado && !respuestasEnviadasRef.current) {
           setTiempoFinalizado(true);
-          guardarRespuestasEnBD();
+          await guardarRespuestasEnBD();
+          await calcularResultados();
         }
       }
     }, 1000);
@@ -148,22 +152,53 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
     };
   }, [codigoSesion]);
 
+  const calcularResultados = async () => {
+    const preguntasConOpciones = preguntas.filter(p => p.tipo === "multiple" && p.respuesta_correcta !== null);
+    let correctas = 0;
+    const detalles: { preguntaId: string; correcta: boolean; opcionSeleccionada: string }[] = [];
+
+    for (const pregunta of preguntasConOpciones) {
+      const opcionSeleccionada = respuestasOpcion[pregunta.id];
+      const esCorrecta = opcionSeleccionada !== undefined && opcionSeleccionada === pregunta.respuesta_correcta;
+      
+      if (esCorrecta) correctas++;
+      detalles.push({
+        preguntaId: pregunta.id,
+        correcta: esCorrecta,
+        opcionSeleccionada: opcionSeleccionada !== undefined ? pregunta.opciones[opcionSeleccionada] : "No respondida"
+      });
+    }
+
+    setResultados({
+      correctas,
+      total: preguntasConOpciones.length,
+      detalles
+    });
+
+    await supabase
+      .from("alumnos")
+      .update({ 
+        puntaje: correctas,
+        total_preguntas: preguntasConOpciones.length
+      })
+      .eq("id", alumnoId);
+  };
+
   const guardarRespuestasEnBD = async () => {
-    // Evitar envíos duplicados
     if (enviado || respuestasEnviadasRef.current) return;
     
     respuestasEnviadasRef.current = true;
     setEnviando(true);
     setError("");
 
-    console.log("Guardando respuestas para alumno:", alumnoId);
-    console.log("Respuestas texto:", respuestas);
-    console.log("Respuestas opciones:", respuestasOpcion);
-
     // Guardar respuestas de texto
     for (const [preguntaId, respuestaTexto] of Object.entries(respuestas)) {
       if (respuestaTexto && respuestaTexto.trim()) {
-        // Verificar si ya existe respuesta para esta pregunta
+        const pregunta = preguntas.find(p => p.id === preguntaId);
+        
+        // Para preguntas de texto, siempre es false porque no se puede validar
+        const esCorrecta = false;
+        
         const { data: existe } = await supabase
           .from("respuestas_alumnos")
           .select("id")
@@ -176,24 +211,42 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
             alumno_id: alumnoId,
             pregunta_id: preguntaId,
             respuesta: respuestaTexto,
+            es_correcta: esCorrecta,
             respondido_en: new Date().toISOString(),
           }]);
 
           if (error) {
             console.error("Error al guardar respuesta:", error);
             setError("Error al guardar algunas respuestas");
-          } else {
-            console.log("Respuesta guardada:", preguntaId);
           }
         } else {
-          console.log("Respuesta ya existe, omitiendo:", preguntaId);
+          // Actualizar respuesta existente
+          const { error } = await supabase
+            .from("respuestas_alumnos")
+            .update({
+              respuesta: respuestaTexto,
+              es_correcta: false,
+              respondido_en: new Date().toISOString()
+            })
+            .eq("id", existe.id);
+
+          if (error) {
+            console.error("Error al actualizar respuesta:", error);
+            setError("Error al actualizar algunas respuestas");
+          }
         }
       }
     }
 
     // Guardar respuestas de opción múltiple
     for (const [preguntaId, opcionIndex] of Object.entries(respuestasOpcion)) {
-      // Verificar si ya existe respuesta para esta pregunta
+      const pregunta = preguntas.find(p => p.id === preguntaId);
+      const opcionTexto = pregunta?.opciones?.[opcionIndex] || "";
+      
+      // Determinar si la respuesta es correcta (siempre será true o false, nunca null)
+      const esCorrecta = pregunta?.respuesta_correcta !== null && 
+                         pregunta?.respuesta_correcta === opcionIndex;
+      
       const { data: existe } = await supabase
         .from("respuestas_alumnos")
         .select("id")
@@ -202,25 +255,35 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
         .maybeSingle();
 
       if (!existe) {
-        const pregunta = preguntas.find(p => p.id === preguntaId);
-        const opcionTexto = pregunta?.opciones?.[opcionIndex] || "";
-        
         const { error } = await supabase.from("respuestas_alumnos").insert([{
           alumno_id: alumnoId,
           pregunta_id: preguntaId,
           respuesta: opcionTexto,
           opcion_seleccionada: opcionIndex,
+          es_correcta: esCorrecta,
           respondido_en: new Date().toISOString(),
         }]);
 
         if (error) {
           console.error("Error al guardar respuesta múltiple:", error);
           setError("Error al guardar algunas respuestas");
-        } else {
-          console.log("Respuesta múltiple guardada:", preguntaId);
         }
       } else {
-        console.log("Respuesta múltiple ya existe, omitiendo:", preguntaId);
+        // Actualizar respuesta existente
+        const { error } = await supabase
+          .from("respuestas_alumnos")
+          .update({
+            respuesta: opcionTexto,
+            opcion_seleccionada: opcionIndex,
+            es_correcta: esCorrecta,
+            respondido_en: new Date().toISOString()
+          })
+          .eq("id", existe.id);
+
+        if (error) {
+          console.error("Error al actualizar respuesta múltiple:", error);
+          setError("Error al actualizar algunas respuestas");
+        }
       }
     }
 
@@ -247,16 +310,14 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
     if (error) setError("");
   };
 
-  const guardarRespuestaMultiple = (opcionIndex: number, opcionTexto: string) => {
-    if (preguntas.length === 0) return;
-    const preguntaActual = preguntas[indicePregunta];
+  const guardarRespuestaMultiple = (preguntaId: string, opcionIndex: number, opcionTexto: string) => {
     setRespuestas({
       ...respuestas,
-      [preguntaActual.id]: opcionTexto,
+      [preguntaId]: opcionTexto,
     });
     setRespuestasOpcion({
       ...respuestasOpcion,
-      [preguntaActual.id]: opcionIndex,
+      [preguntaId]: opcionIndex,
     });
     if (error) setError("");
   };
@@ -283,11 +344,11 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
     }
     
     if (enviado || respuestasEnviadasRef.current) {
-      console.log("Respuestas ya enviadas, ignorando");
       return;
     }
     
     await guardarRespuestasEnBD();
+    await calcularResultados();
     setTiempoFinalizado(true);
     if (pollingRef.current) clearInterval(pollingRef.current);
   };
@@ -312,10 +373,44 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
   if (tiempoFinalizado || enviado) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f7fbfd] px-4">
-        <div className="text-center bg-white rounded-2xl p-8 max-w-md">
-          <h2 className="text-2xl font-semibold text-[#1e3a5f] mb-4">⏰ Tiempo finalizado</h2>
+        <div className="text-center bg-white rounded-2xl p-8 max-w-md w-full">
+          <h2 className="text-2xl font-semibold text-[#1e3a5f] mb-4">
+            {enviado ? "Respuestas enviadas" : "Tiempo finalizado"}
+          </h2>
+          
+          {resultados && resultados.total > 0 && (
+            <div className="mb-6">
+              <div className="bg-[#f0f8ff] rounded-xl p-4 mb-4">
+                <p className="text-sm text-slate-500">Tu puntaje</p>
+                <p className="text-3xl font-bold text-[#1e3a5f]">
+                  {resultados.correctas} / {resultados.total}
+                </p>
+                <p className="text-sm text-slate-500 mt-1">
+                  {Math.round((resultados.correctas / resultados.total) * 100)}% correctas
+                </p>
+              </div>
+              
+              <div className="space-y-2 text-left">
+                <p className="text-sm font-medium text-[#1e3a5f]">Resumen de respuestas:</p>
+                {preguntas.filter(p => p.tipo === "multiple").map((pregunta, idx) => {
+                  const detalle = resultados.detalles.find(d => d.preguntaId === pregunta.id);
+                  return (
+                    <div key={pregunta.id} className="text-sm border-b border-[#cfeaf6] py-2">
+                      <p className="text-slate-700">{idx + 1}. {pregunta.texto}</p>
+                      <p className="text-slate-500 ml-4">Tu respuesta: {detalle?.opcionSeleccionada || "No respondida"}</p>
+                      {detalle && (
+                        <p className={`ml-4 font-medium ${detalle.correcta ? 'text-green-600' : 'text-red-500'}`}>
+                          {detalle.correcta ? 'Correcta' : 'Incorrecta'}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <p className="text-slate-600 mb-2">Gracias por participar, {nombre}.</p>
-          <p className="text-slate-600 mb-2">Tus respuestas han sido enviadas al profesor.</p>
           <p className="text-slate-600 mb-6">Los resultados te llegarán a: <strong>{email}</strong></p>
           <button onClick={() => window.location.reload()} className="px-6 py-2 bg-[#9ecbff] rounded-xl hover:bg-[#81b0d6] transition">
             Volver al inicio
@@ -329,7 +424,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f7fbfd] px-4">
         <div className="text-center bg-white rounded-2xl p-8">
-          <h2 className="text-xl font-semibold text-red-500 mb-4">⚠️ No hay preguntas</h2>
+          <h2 className="text-xl font-semibold text-red-500 mb-4">No hay preguntas</h2>
           <p className="text-slate-600 mb-4">El profesor aún no ha configurado las preguntas para esta sesión.</p>
           <button onClick={() => window.location.reload()} className="px-6 py-2 bg-[#9ecbff] rounded-xl">Volver al inicio</button>
         </div>
@@ -343,7 +438,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
   return (
     <div className="min-h-screen bg-[#f7fbfd] p-6 flex justify-center">
       <div className="w-full max-w-2xl bg-white rounded-2xl shadow-md p-8">
-        <h2 className="text-xl font-semibold text-[#1e3a5f] mb-2">🧑‍🎓 Alumno: {nombre}</h2>
+        <h2 className="text-xl font-semibold text-[#1e3a5f] mb-2">Alumno: {nombre}</h2>
         <p className="text-slate-500 mb-1"><strong>Sesión:</strong> {codigoSesion}</p>
         <p className="text-slate-500 mb-6"><strong>Email:</strong> {email}</p>
 
@@ -361,14 +456,14 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
 
         {preguntaActual.tipo === "multiple" ? (
           <div className="space-y-3 mb-4">
-            {preguntaActual.opciones?.map((opcion, optIdx) => (
+            {preguntaActual.opciones.map((opcion, optIdx) => (
               <label key={optIdx} className="flex items-center gap-3 p-3 border border-[#cfeaf6] rounded-xl cursor-pointer hover:bg-[#f0f8ff] transition">
                 <input
                   type="radio"
                   name={`pregunta_${preguntaActual.id}`}
                   value={opcion}
                   checked={respuestas[preguntaActual.id] === opcion}
-                  onChange={() => guardarRespuestaMultiple(optIdx, opcion)}
+                  onChange={() => guardarRespuestaMultiple(preguntaActual.id, optIdx, opcion)}
                   className="w-4 h-4 text-[#9ecbff] focus:ring-[#9ecbff]"
                 />
                 <span className="text-slate-700">{opcion}</span>
@@ -391,7 +486,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
 
         {!esUltima ? (
           <button onClick={siguientePregunta} className="w-full py-3 bg-[#9ecbff] text-[#1e3a5f] rounded-xl hover:bg-[#81b0d6] transition font-medium">
-            Siguiente pregunta →
+            Siguiente pregunta
           </button>
         ) : (
           <button 
@@ -399,7 +494,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
             disabled={enviando}
             className="w-full py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 transition disabled:opacity-50 font-medium"
           >
-            {enviando ? "Enviando..." : "📤 Enviar respuestas"}
+            {enviando ? "Enviando..." : "Enviar respuestas"}
           </button>
         )}
       </div>

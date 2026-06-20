@@ -13,6 +13,7 @@ interface PreguntaConfig {
   texto: string;
   tipo: "texto" | "multiple";
   opciones: string[];
+  respuesta_correcta?: number;
 }
 
 export default function ConfigurarSesion({
@@ -22,7 +23,7 @@ export default function ConfigurarSesion({
   onVolver,
 }: Props) {
   const [preguntas, setPreguntas] = useState<PreguntaConfig[]>([
-    { texto: "", tipo: "texto", opciones: ["", ""] }
+    { texto: "", tipo: "texto", opciones: ["", ""], respuesta_correcta: undefined }
   ]);
   const [tiempo, setTiempo] = useState(10);
   const [continuar, setContinuar] = useState(false);
@@ -43,7 +44,12 @@ export default function ConfigurarSesion({
   }
 
   const agregarPregunta = () => {
-    setPreguntas([...preguntas, { texto: "", tipo: "texto", opciones: ["", ""] }]);
+    setPreguntas([...preguntas, { 
+      texto: "", 
+      tipo: "texto", 
+      opciones: ["", ""],
+      respuesta_correcta: undefined
+    }]);
   };
 
   const actualizarTexto = (index: number, valor: string) => {
@@ -57,6 +63,10 @@ export default function ConfigurarSesion({
     nuevas[index].tipo = tipo;
     if (tipo === "multiple" && nuevas[index].opciones.length < 2) {
       nuevas[index].opciones = ["", ""];
+      nuevas[index].respuesta_correcta = undefined;
+    }
+    if (tipo === "texto") {
+      nuevas[index].respuesta_correcta = undefined;
     }
     setPreguntas(nuevas);
   };
@@ -64,6 +74,19 @@ export default function ConfigurarSesion({
   const actualizarOpcion = (preguntaIndex: number, opcionIndex: number, valor: string) => {
     const nuevas = [...preguntas];
     nuevas[preguntaIndex].opciones[opcionIndex] = valor;
+    if (nuevas[preguntaIndex].respuesta_correcta === opcionIndex && valor.trim() === "") {
+      nuevas[preguntaIndex].respuesta_correcta = undefined;
+    }
+    setPreguntas(nuevas);
+  };
+
+  const seleccionarRespuestaCorrecta = (preguntaIndex: number, opcionIndex: number) => {
+    const nuevas = [...preguntas];
+    if (nuevas[preguntaIndex].respuesta_correcta === opcionIndex) {
+      nuevas[preguntaIndex].respuesta_correcta = undefined;
+    } else {
+      nuevas[preguntaIndex].respuesta_correcta = opcionIndex;
+    }
     setPreguntas(nuevas);
   };
 
@@ -78,6 +101,11 @@ export default function ConfigurarSesion({
   const eliminarOpcion = (preguntaIndex: number, opcionIndex: number) => {
     const nuevas = [...preguntas];
     nuevas[preguntaIndex].opciones.splice(opcionIndex, 1);
+    if (nuevas[preguntaIndex].respuesta_correcta === opcionIndex) {
+      nuevas[preguntaIndex].respuesta_correcta = undefined;
+    } else if (nuevas[preguntaIndex].respuesta_correcta !== undefined && nuevas[preguntaIndex].respuesta_correcta > opcionIndex) {
+      nuevas[preguntaIndex].respuesta_correcta = nuevas[preguntaIndex].respuesta_correcta - 1;
+    }
     setPreguntas(nuevas);
   };
 
@@ -89,7 +117,6 @@ export default function ConfigurarSesion({
       return;
     }
 
-    // Validar preguntas múltiples
     for (let i = 0; i < preguntas.length; i++) {
       const p = preguntas[i];
       if (p.texto.trim() !== "") {
@@ -97,6 +124,16 @@ export default function ConfigurarSesion({
           const opcionesValidas = p.opciones.filter(opt => opt.trim() !== "");
           if (opcionesValidas.length < 2) {
             setError(`La pregunta "${p.texto}" debe tener al menos 2 opciones`);
+            return;
+          }
+          
+          if (p.respuesta_correcta === undefined || p.respuesta_correcta === null) {
+            setError(`La pregunta "${p.texto}" debe tener una respuesta correcta seleccionada`);
+            return;
+          }
+          
+          if (p.opciones[p.respuesta_correcta]?.trim() === "") {
+            setError(`La pregunta "${p.texto}" tiene seleccionada una opción vacía como correcta`);
             return;
           }
         }
@@ -111,7 +148,6 @@ export default function ConfigurarSesion({
     setGuardando(true);
     setError("");
 
-    // Actualizar tiempo
     const { error: errorSesion } = await supabase
       .from("sesiones")
       .update({ tiempo_limite: tiempo * 60 })
@@ -123,23 +159,19 @@ export default function ConfigurarSesion({
       return;
     }
 
-    // Eliminar preguntas anteriores
     await supabase.from("preguntas").delete().eq("sesion_codigo", codigoSesion);
 
-    // Guardar nuevas preguntas
     for (let i = 0; i < preguntas.length; i++) {
       const p = preguntas[i];
       if (p.texto.trim() === "") continue;
 
       const opcionesValidas = p.tipo === "multiple" 
         ? p.opciones.filter(opt => opt.trim() !== "")
-        : null;
+        : [];
 
-      console.log("Guardando pregunta:", {
-        texto: p.texto.trim(),
-        tipo: p.tipo,
-        opciones: opcionesValidas
-      });
+      const respuestaCorrecta = p.tipo === "multiple" && p.respuesta_correcta !== undefined
+        ? p.respuesta_correcta
+        : null;
 
       const { error: errorPregunta } = await supabase
         .from("preguntas")
@@ -148,7 +180,8 @@ export default function ConfigurarSesion({
           texto: p.texto.trim(),
           orden: i,
           tipo: p.tipo,
-          opciones: opcionesValidas
+          opciones: opcionesValidas,
+          respuesta_correcta: respuestaCorrecta
         }]);
 
       if (errorPregunta) {
@@ -164,13 +197,13 @@ export default function ConfigurarSesion({
   };
 
   if (continuar) {
-    // Pasar preguntas completas a SalaProfesor
     const preguntasCompletas = preguntas
       .filter(p => p.texto.trim() !== "")
       .map(p => ({
         texto: p.texto,
         tipo: p.tipo,
-        opciones: p.tipo === "multiple" ? p.opciones.filter(opt => opt.trim() !== "") : undefined
+        opciones: p.tipo === "multiple" ? p.opciones.filter(opt => opt.trim() !== "") : undefined,
+        respuesta_correcta: p.tipo === "multiple" ? p.respuesta_correcta : undefined
       }));
     
     return (
@@ -273,7 +306,7 @@ export default function ConfigurarSesion({
                   <div className="ml-4 pl-4 border-l-2 border-[#cfeaf6]">
                     <p className="text-xs text-slate-500 mb-2">Opciones de respuesta</p>
                     {pregunta.opciones.map((opcion, optIdx) => (
-                      <div key={optIdx} className="flex gap-2 mb-2">
+                      <div key={optIdx} className="flex gap-2 mb-2 items-center">
                         <input
                           type="text"
                           placeholder={`Opción ${optIdx + 1}`}
@@ -281,6 +314,17 @@ export default function ConfigurarSesion({
                           onChange={(e) => actualizarOpcion(idx, optIdx, e.target.value)}
                           className="flex-1 px-3 py-2 rounded-lg bg-white border border-[#cfeaf6] text-sm focus:outline-none focus:ring-2 focus:ring-[#9ecbff]"
                         />
+                        <label className="flex items-center gap-1 text-sm text-slate-600">
+                          <input
+                            type="radio"
+                            name={`respuesta_correcta_${idx}`}
+                            checked={pregunta.respuesta_correcta === optIdx}
+                            onChange={() => seleccionarRespuestaCorrecta(idx, optIdx)}
+                            className="text-green-500 focus:ring-green-500"
+                            disabled={!opcion.trim()}
+                          />
+                          Correcta
+                        </label>
                         {pregunta.opciones.length > 2 && (
                           <button
                             onClick={() => eliminarOpcion(idx, optIdx)}

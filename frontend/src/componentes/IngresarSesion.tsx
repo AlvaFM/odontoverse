@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import VistaAlumno from "./VistaAlumno";
 import dienteLike from "../assets/img/dientelike.png";
-import dinoImagen from "../assets/img/dinoimagen.avif";
+import dinoImagen from "../assets/img/wallpaperAlumno.png";
 
 interface SesionData {
   codigo: string;
