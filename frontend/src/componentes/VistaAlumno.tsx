@@ -21,6 +21,7 @@ interface Sesion {
   activa: boolean;
   activada_en: string | null;
   tiempo_limite: number | null;
+  finalizada_en: string | null;
 }
 
 export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: Props) {
@@ -35,8 +36,10 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
   const [cargando, setCargando] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
   const [resultados, setResultados] = useState<{ correctas: number; total: number; detalles: { preguntaId: string; correcta: boolean; opcionSeleccionada: string }[] } | null>(null);
-  const pollingRef = useRef<number | null>(null);
+  
+  const intervalRef = useRef<number | null>(null);
   const respuestasEnviadasRef = useRef<boolean>(false);
+  const ultimoEstadoRef = useRef<string>("");
 
   const todasRespondidas = (): boolean => {
     for (const pregunta of preguntas) {
@@ -48,109 +51,150 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
     return true;
   };
 
-  useEffect(() => {
-    const cargarDatosSesion = async () => {
-      const { data, error } = await supabase
-        .from("sesiones")
-        .select("activa, activada_en, tiempo_limite")
-        .eq("codigo", codigoSesion)
-        .maybeSingle();
+  const calcularTiempoRestante = (sesion: Sesion): number => {
+    if (sesion.finalizada_en !== null) {
+      console.log("Sesion finalizada, tiempo 0");
+      return 0;
+    }
+    if (!sesion.activa) {
+      console.log("Sesion no activa, tiempo 0");
+      return 0;
+    }
+    if (!sesion.activada_en || !sesion.tiempo_limite) {
+      console.log("Faltan datos:", { activada_en: sesion.activada_en, tiempo_limite: sesion.tiempo_limite });
+      return 0;
+    }
+    
+    const activadaEn = new Date(sesion.activada_en).getTime();
+    const ahora = Date.now();
+    const segundosTranscurridos = Math.floor((ahora - activadaEn) / 1000);
+    const restante = Math.max(0, sesion.tiempo_limite - segundosTranscurridos);
+    
+    console.log("Alumno - Calculando tiempo:", {
+      activada_en: sesion.activada_en,
+      tiempo_limite: sesion.tiempo_limite,
+      segundosTranscurridos,
+      restante
+    });
+    
+    return restante;
+  };
 
-      if (error) {
-        console.error("Error al cargar sesión:", error);
-        setTiempoFinalizado(true);
-        setCargando(false);
-        return;
+  const cargarPreguntas = async () => {
+    const { data: preguntasData, error: preguntasError } = await supabase
+      .from("preguntas")
+      .select("*")
+      .eq("sesion_codigo", codigoSesion)
+      .order("orden", { ascending: true });
+
+    if (preguntasError) {
+      console.error("Error al cargar preguntas:", preguntasError);
+      return;
+    }
+
+    if (preguntasData && preguntasData.length > 0) {
+      setPreguntas(preguntasData as Pregunta[]);
+    } else {
+      setTiempoFinalizado(true);
+    }
+  };
+
+  const obtenerSesion = async (): Promise<Sesion | null> => {
+    const { data, error } = await supabase
+      .from("sesiones")
+      .select("activa, activada_en, tiempo_limite, finalizada_en")
+      .eq("codigo", codigoSesion)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error al obtener sesion:", error);
+      return null;
+    }
+
+    console.log("Alumno - Sesion obtenida de BD:", data);
+    return data as Sesion | null;
+  };
+
+  const actualizarEstado = async () => {
+    const sesion = await obtenerSesion();
+    if (!sesion) {
+      setTiempoFinalizado(true);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
+      return;
+    }
 
-      const sesion = data as Sesion | null;
-
-      if (!sesion || sesion.activa !== true) {
+    const estadoActual = `${sesion.activa}_${sesion.activada_en}_${sesion.tiempo_limite}_${sesion.finalizada_en}`;
+    
+    if (estadoActual !== ultimoEstadoRef.current) {
+      console.log("Cambio de estado detectado:", { anterior: ultimoEstadoRef.current, actual: estadoActual });
+      ultimoEstadoRef.current = estadoActual;
+      
+      if (sesion.finalizada_en !== null || !sesion.activa) {
         setTiempoFinalizado(true);
-        setCargando(false);
-        return;
-      }
-
-      if (sesion.activada_en && sesion.tiempo_limite) {
-        const activadaEn = new Date(sesion.activada_en).getTime();
-        const ahora = new Date().getTime();
-        const segundosTranscurridos = Math.floor((ahora - activadaEn) / 1000);
-        const restante = Math.max(0, sesion.tiempo_limite - segundosTranscurridos);
-        setTiempoRestante(restante);
-
-        if (restante <= 0) {
-          setTiempoFinalizado(true);
+        if (!respuestasEnviadasRef.current) {
           await guardarRespuestasEnBD();
           await calcularResultados();
-          setCargando(false);
-          return;
+        }
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        return;
+      }
+
+      if (sesion.activa) {
+        setTiempoFinalizado(false);
+        setRespuestas({});
+        setRespuestasOpcion({});
+        setIndicePregunta(0);
+        setEnviado(false);
+        respuestasEnviadasRef.current = false;
+        await cargarPreguntas();
+      }
+    }
+
+    if (sesion.activa && sesion.finalizada_en === null) {
+      const restante = calcularTiempoRestante(sesion);
+      setTiempoRestante(restante);
+
+      if (restante <= 0 && !respuestasEnviadasRef.current) {
+        setTiempoFinalizado(true);
+        await guardarRespuestasEnBD();
+        await calcularResultados();
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
         }
       }
+    }
+  };
 
-      const { data: preguntasData, error: errorPreguntas } = await supabase
-        .from("preguntas")
-        .select("*")
-        .eq("sesion_codigo", codigoSesion)
-        .order("orden", { ascending: true });
+  useEffect(() => {
+    let isMounted = true;
 
-      if (errorPreguntas) {
-        console.error("Error al cargar preguntas:", errorPreguntas);
-      }
-
-      if (preguntasData && preguntasData.length > 0) {
-        setPreguntas(preguntasData as Pregunta[]);
-      } else {
-        setTiempoFinalizado(true);
-      }
-
+    const inicializar = async () => {
+      await actualizarEstado();
       setCargando(false);
     };
 
-    cargarDatosSesion();
+    inicializar();
 
-    pollingRef.current = window.setInterval(async () => {
-      const { data, error } = await supabase
-        .from("sesiones")
-        .select("activa, activada_en, tiempo_limite")
-        .eq("codigo", codigoSesion)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Error en polling:", error);
-        return;
-      }
-
-      const sesion = data as Sesion | null;
-
-      if (!sesion || sesion.activa !== true) {
-        if (pollingRef.current) clearInterval(pollingRef.current);
-        if (!respuestasEnviadasRef.current) {
-          setTiempoFinalizado(true);
-          await guardarRespuestasEnBD();
-          await calcularResultados();
-        }
-        return;
-      }
-
-      if (sesion.activada_en && sesion.tiempo_limite) {
-        const activadaEn = new Date(sesion.activada_en).getTime();
-        const ahora = new Date().getTime();
-        const segundosTranscurridos = Math.floor((ahora - activadaEn) / 1000);
-        const restante = Math.max(0, sesion.tiempo_limite - segundosTranscurridos);
-        setTiempoRestante(restante);
-
-        if (restante <= 0 && !tiempoFinalizado && !respuestasEnviadasRef.current) {
-          setTiempoFinalizado(true);
-          await guardarRespuestasEnBD();
-          await calcularResultados();
-        }
-      }
+    intervalRef.current = window.setInterval(async () => {
+      if (!isMounted) return;
+      await actualizarEstado();
     }, 1000);
 
     return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
+      isMounted = false;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
-  }, [codigoSesion]);
+  }, []);
 
   const calcularResultados = async () => {
     const preguntasConOpciones = preguntas.filter(p => p.tipo === "multiple" && p.respuesta_correcta !== null);
@@ -191,12 +235,8 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
     setEnviando(true);
     setError("");
 
-    // Guardar respuestas de texto
     for (const [preguntaId, respuestaTexto] of Object.entries(respuestas)) {
       if (respuestaTexto && respuestaTexto.trim()) {
-        const pregunta = preguntas.find(p => p.id === preguntaId);
-        
-        // Para preguntas de texto, siempre es false porque no se puede validar
         const esCorrecta = false;
         
         const { data: existe } = await supabase
@@ -220,7 +260,6 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
             setError("Error al guardar algunas respuestas");
           }
         } else {
-          // Actualizar respuesta existente
           const { error } = await supabase
             .from("respuestas_alumnos")
             .update({
@@ -238,12 +277,10 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
       }
     }
 
-    // Guardar respuestas de opción múltiple
     for (const [preguntaId, opcionIndex] of Object.entries(respuestasOpcion)) {
       const pregunta = preguntas.find(p => p.id === preguntaId);
       const opcionTexto = pregunta?.opciones?.[opcionIndex] || "";
       
-      // Determinar si la respuesta es correcta (siempre será true o false, nunca null)
       const esCorrecta = pregunta?.respuesta_correcta !== null && 
                          pregunta?.respuesta_correcta === opcionIndex;
       
@@ -265,11 +302,10 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
         }]);
 
         if (error) {
-          console.error("Error al guardar respuesta múltiple:", error);
+          console.error("Error al guardar respuesta multiple:", error);
           setError("Error al guardar algunas respuestas");
         }
       } else {
-        // Actualizar respuesta existente
         const { error } = await supabase
           .from("respuestas_alumnos")
           .update({
@@ -281,7 +317,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
           .eq("id", existe.id);
 
         if (error) {
-          console.error("Error al actualizar respuesta múltiple:", error);
+          console.error("Error al actualizar respuesta multiple:", error);
           setError("Error al actualizar algunas respuestas");
         }
       }
@@ -350,12 +386,16 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
     await guardarRespuestasEnBD();
     await calcularResultados();
     setTiempoFinalizado(true);
-    if (pollingRef.current) clearInterval(pollingRef.current);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
   };
 
   const formatearTiempo = (segundos: number) => {
+    if (segundos < 0) return "00:00";
     const mins = Math.floor(segundos / 60);
-    const segs = segundos % 60;
+    const segs = Math.floor(segundos % 60);
     return `${mins}:${segs.toString().padStart(2, "0")}`;
   };
 
@@ -425,7 +465,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
       <div className="min-h-screen flex items-center justify-center bg-[#f7fbfd] px-4">
         <div className="text-center bg-white rounded-2xl p-8">
           <h2 className="text-xl font-semibold text-red-500 mb-4">No hay preguntas</h2>
-          <p className="text-slate-600 mb-4">El profesor aún no ha configurado las preguntas para esta sesión.</p>
+          <p className="text-slate-600 mb-4">El profesor aun no ha configurado las preguntas para esta sesion.</p>
           <button onClick={() => window.location.reload()} className="px-6 py-2 bg-[#9ecbff] rounded-xl">Volver al inicio</button>
         </div>
       </div>
@@ -439,12 +479,14 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
     <div className="min-h-screen bg-[#f7fbfd] p-6 flex justify-center">
       <div className="w-full max-w-2xl bg-white rounded-2xl shadow-md p-8">
         <h2 className="text-xl font-semibold text-[#1e3a5f] mb-2">Alumno: {nombre}</h2>
-        <p className="text-slate-500 mb-1"><strong>Sesión:</strong> {codigoSesion}</p>
+        <p className="text-slate-500 mb-1"><strong>Sesion:</strong> {codigoSesion}</p>
         <p className="text-slate-500 mb-6"><strong>Email:</strong> {email}</p>
 
         <div className="bg-[#f0f8ff] rounded-xl p-4 text-center mb-6">
           <p className="text-sm text-slate-500">Tiempo restante</p>
-          <p className="text-3xl font-bold text-[#1e3a5f]">{tiempoRestante !== null ? formatearTiempo(tiempoRestante) : "Calculando..."}</p>
+          <p className="text-3xl font-bold text-[#1e3a5f]">
+            {tiempoRestante !== null ? formatearTiempo(tiempoRestante) : "Calculando..."}
+          </p>
         </div>
 
         <hr className="my-4" />
@@ -473,7 +515,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
         ) : (
           <textarea
             rows={6}
-            placeholder="Escribe tu respuesta aquí..."
+            placeholder="Escribe tu respuesta aqui..."
             value={respuestas[preguntaActual.id] || ""}
             onChange={(e) => guardarRespuestaTexto(e.target.value)}
             className="w-full p-3 border border-[#cfeaf6] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#9ecbff] mb-4"
