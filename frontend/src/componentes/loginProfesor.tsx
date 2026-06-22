@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
-import dienteLike from "../assets/img/dientelike.png";
+import Logo from "../assets/img/tooth.svg";
 import dinoImagen from "../assets/img/wallpaperProfe.png";
 
 interface Props {
@@ -105,7 +105,7 @@ export default function LoginProfesor({
           {/* LOGO */}
           <div className="w-14 h-14 mx-auto bg-[#eef6ff] rounded-2xl flex items-center justify-center mb-4">
             <img
-              src={dienteLike}
+              src={Logo}
               alt="Logo"
               className="w-9 h-9 object-contain"
             />

@@ -69,62 +69,66 @@ export default function CrearSesion({ profesorEmail, onVolver }: Props) {
   }
 
   return (
-    <div
-      className={`h-screen w-screen flex flex-col items-center justify-center bg-slate-100 transition-all duration-300 ${
-        animando ? "scale-95 opacity-0" : "scale-100 opacity-100"
-      }`}
-    >
-      <div className="mb-10 text-center px-4">
-        <h1 className="text-3xl md:text-4xl font-semibold text-slate-700">
-          Crear sesión clínica
-        </h1>
-        <p className="text-slate-500 mt-2 text-base md:text-lg">
-          Genera un código para comenzar
-        </p>
-      </div>
-
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-8">
-        <div className="flex justify-between items-center mb-4">
-          <button
-            onClick={volverAnimado}
-            className="text-sm bg-slate-200 hover:bg-slate-300 px-3 py-1 rounded-lg transition"
-          >
-            ← Volver
-          </button>
-
-          <span className="text-sm text-slate-500">
-            {profesorEmail}
-          </span>
-        </div>
-
-        <button
-          onClick={generarCodigo}
-          disabled={cargando}
-          className="w-full py-3 rounded-xl bg-[#cfeaf6] text-[#1e3a5f] hover:bg-[#b9e0f2] transition disabled:opacity-50"
-        >
-          {cargando ? "Generando..." : "Generar código"}
-        </button>
-
-        {error && (
-          <p className="text-red-500 mt-3 text-sm text-center">{error}</p>
-        )}
-
-        {codigoSesion && (
-          <div className="mt-6 text-center">
-            <p className="text-slate-600 font-medium">Código sesión</p>
-
-            <p className="text-3xl font-bold tracking-widest text-[#1e3a5f] mt-2">
-              {codigoSesion}
+    <div className="fixed inset-0 bg-[#e8edf2] overflow-hidden">
+      <div
+        className={`h-full w-full flex flex-col items-center justify-center transition-all duration-300 ${
+          animando ? "scale-95 opacity-0" : "scale-100 opacity-100"
+        }`}
+      >
+        <div className="w-full max-w-xl px-4 pt-8">
+          <div className="text-center mb-6">
+            <h1 className="text-3xl md:text-4xl font-semibold text-slate-700">
+              Crear sesión clínica
+            </h1>
+            <p className="text-slate-500 mt-2 text-base md:text-lg">
+              Genera un código para comenzar
             </p>
+          </div>
+
+          <div className="w-full bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-8">
+            <div className="flex justify-between items-center mb-4">
+              <button
+                onClick={volverAnimado}
+                className="text-sm bg-slate-200 hover:bg-slate-300 px-3 py-1 rounded-lg transition text-slate-700"
+              >
+                ← Volver
+              </button>
+
+              <span className="text-sm text-slate-500">
+                {profesorEmail}
+              </span>
+            </div>
 
             <button
-              onClick={irAContinuar}
-              className="mt-5 w-full py-3 rounded-xl bg-[#dcebf7] text-[#1e3a5f] hover:bg-[#cfe3f3] transition"
+              onClick={generarCodigo}
+              disabled={cargando}
+              className="w-full py-3 rounded-xl bg-[#cfeaf6] text-[#1e3a5f] hover:bg-[#b9e0f2] transition disabled:opacity-50 font-medium"
             >
-              Continuar
+              {cargando ? "Generando..." : "Generar código"}
             </button>
+
+            {error && (
+              <p className="text-red-500 mt-3 text-sm text-center">{error}</p>
+            )}
+
+            {codigoSesion && (
+              <div className="mt-6 text-center">
+                <p className="text-slate-600 font-medium">Código sesión</p>
+
+                <p className="text-3xl font-bold tracking-widest text-[#1e3a5f] mt-2">
+                  {codigoSesion}
+                </p>
+
+                <button
+                  onClick={irAContinuar}
+                  className="mt-5 w-full py-3 rounded-xl bg-[#dcebf7] text-[#1e3a5f] hover:bg-[#cfe3f3] transition font-medium"
+                >
+                  Continuar
+                </button>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

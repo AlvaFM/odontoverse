@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import VistaAlumno from "./VistaAlumno";
-import dienteLike from "../assets/img/dientelike.png";
+import Logo from "../assets/img/tooth.svg";
 import dinoImagen from "../assets/img/wallpaperAlumno.png";
 
 interface SesionData {
@@ -138,7 +138,7 @@ export default function IngresarSesion({ onVolver }: Props) {
 
           {/* ICONO */}
           <div className="w-16 h-16 mx-auto bg-[#eef6ff] rounded-2xl flex items-center justify-center animate-pulse">
-            <img src={dienteLike} className="w-10 h-10 object-contain" />
+            <img src={Logo} className="w-10 h-10 object-contain" />
           </div>
 
           {/* TEXTO */}
@@ -191,7 +191,7 @@ export default function IngresarSesion({ onVolver }: Props) {
 
         <div className="w-14 h-14 mx-auto bg-[#eef6ff] rounded-2xl flex items-center justify-center mb-4">
           <img
-            src={dienteLike}
+            src={Logo}
             alt="Logo"
             className="w-9 h-9 object-contain"
           />
