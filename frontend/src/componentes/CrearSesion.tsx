@@ -75,7 +75,7 @@ export default function CrearSesion({ profesorEmail, onVolver }: Props) {
           animando ? "scale-95 opacity-0" : "scale-100 opacity-100"
         }`}
       >
-        <div className="w-full max-w-xl px-4 pt-8">
+        <div className="w-full max-w-xl px-4 pt-20">
           <div className="text-center mb-6">
             <h1 className="text-3xl md:text-4xl font-semibold text-slate-700">
               Crear sesión clínica
