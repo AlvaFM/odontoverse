@@ -22,6 +22,8 @@ interface Sesion {
   activada_en: string | null;
   tiempo_limite: number | null;
   finalizada_en: string | null;
+  imagen_url: string | null;
+  mostrar_imagen: boolean;
 }
 
 export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: Props) {
@@ -36,6 +38,8 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
   const [cargando, setCargando] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
   const [resultados, setResultados] = useState<{ correctas: number; total: number; detalles: { preguntaId: string; correcta: boolean; opcionSeleccionada: string }[] } | null>(null);
+  const [imagenUrl, setImagenUrl] = useState<string | null>(null);
+  const [mostrarImagen, setMostrarImagen] = useState<boolean>(false);
   
   const intervalRef = useRef<number | null>(null);
   const respuestasEnviadasRef = useRef<boolean>(false);
@@ -53,15 +57,12 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
 
   const calcularTiempoRestante = (sesion: Sesion): number => {
     if (sesion.finalizada_en !== null) {
-      console.log("Sesion finalizada, tiempo 0");
       return 0;
     }
     if (!sesion.activa) {
-      console.log("Sesion no activa, tiempo 0");
       return 0;
     }
     if (!sesion.activada_en || !sesion.tiempo_limite) {
-      console.log("Faltan datos:", { activada_en: sesion.activada_en, tiempo_limite: sesion.tiempo_limite });
       return 0;
     }
     
@@ -69,13 +70,6 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
     const ahora = Date.now();
     const segundosTranscurridos = Math.floor((ahora - activadaEn) / 1000);
     const restante = Math.max(0, sesion.tiempo_limite - segundosTranscurridos);
-    
-    console.log("Alumno - Calculando tiempo:", {
-      activada_en: sesion.activada_en,
-      tiempo_limite: sesion.tiempo_limite,
-      segundosTranscurridos,
-      restante
-    });
     
     return restante;
   };
@@ -102,7 +96,7 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
   const obtenerSesion = async (): Promise<Sesion | null> => {
     const { data, error } = await supabase
       .from("sesiones")
-      .select("activa, activada_en, tiempo_limite, finalizada_en")
+      .select("activa, activada_en, tiempo_limite, finalizada_en, imagen_url, mostrar_imagen")
       .eq("codigo", codigoSesion)
       .maybeSingle();
 
@@ -111,7 +105,6 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
       return null;
     }
 
-    console.log("Alumno - Sesion obtenida de BD:", data);
     return data as Sesion | null;
   };
 
@@ -126,10 +119,18 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
       return;
     }
 
+    // Actualizar imagen si está disponible
+    if (sesion.mostrar_imagen && sesion.imagen_url) {
+      setImagenUrl(sesion.imagen_url);
+      setMostrarImagen(true);
+    } else {
+      setImagenUrl(null);
+      setMostrarImagen(false);
+    }
+
     const estadoActual = `${sesion.activa}_${sesion.activada_en}_${sesion.tiempo_limite}_${sesion.finalizada_en}`;
     
     if (estadoActual !== ultimoEstadoRef.current) {
-      console.log("Cambio de estado detectado:", { anterior: ultimoEstadoRef.current, actual: estadoActual });
       ultimoEstadoRef.current = estadoActual;
       
       if (sesion.finalizada_en !== null || !sesion.activa) {
@@ -488,6 +489,18 @@ export default function VistaAlumno({ nombre, email, codigoSesion, alumnoId }: P
             {tiempoRestante !== null ? formatearTiempo(tiempoRestante) : "Calculando..."}
           </p>
         </div>
+
+        {/* Mostrar imagen del caso clínico si está disponible */}
+        {mostrarImagen && imagenUrl && (
+          <div className="mb-6 bg-[#f0f8ff] rounded-xl p-4 text-center">
+            <p className="text-sm text-slate-500 mb-2">Caso clínico</p>
+            <img 
+              src={imagenUrl} 
+              alt="Caso clínico" 
+              className="max-h-64 mx-auto rounded-lg object-contain border border-[#cfeaf6]"
+            />
+          </div>
+        )}
 
         <hr className="my-4" />
 

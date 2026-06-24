@@ -7,6 +7,8 @@ interface Props {
   diagnostico: string;
   profesorEmail: string;
   onVolver: () => void;
+  imagenUrl?: string | null;
+  mostrarImagen?: boolean;
 }
 
 interface PreguntaConfig {
@@ -21,6 +23,8 @@ export default function ConfigurarSesion({
   diagnostico,
   profesorEmail,
   onVolver,
+  imagenUrl,
+  mostrarImagen,
 }: Props) {
   const [preguntas, setPreguntas] = useState<PreguntaConfig[]>([
     { texto: "", tipo: "texto", opciones: ["", ""], respuesta_correcta: undefined }
@@ -213,6 +217,8 @@ export default function ConfigurarSesion({
         tiempo={tiempo}
         profesorEmail={profesorEmail}
         onVolver={onVolver}
+        imagenUrl={imagenUrl}
+        mostrarImagen={mostrarImagen}
       />
     );
   }
@@ -237,6 +243,17 @@ export default function ConfigurarSesion({
           <p className="text-sm text-slate-500">Diagnóstico confirmado</p>
           <p className="font-semibold text-[#1e3a5f]">{diagnostico}</p>
         </div>
+
+        {mostrarImagen && imagenUrl && (
+          <div className="bg-[#f0f8ff] rounded-xl p-3 mb-6 text-center">
+            <p className="text-xs text-slate-500">Imagen visible para alumnos</p>
+            <img 
+              src={imagenUrl} 
+              alt="Imagen del caso clínico" 
+              className="max-h-32 mx-auto mt-2 rounded-lg object-contain border border-[#cfeaf6]"
+            />
+          </div>
+        )}
 
         <div className="mb-6">
           <label className="text-sm text-slate-600 mb-2 block">Tiempo (minutos)</label>

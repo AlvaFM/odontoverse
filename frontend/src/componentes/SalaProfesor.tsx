@@ -8,6 +8,8 @@ interface Props {
   tiempo: number;
   profesorEmail: string;
   onVolver: () => void;
+  imagenUrl?: string | null;
+  mostrarImagen?: boolean;
 }
 
 interface Alumno {
@@ -31,6 +33,8 @@ export default function SalaProfesor({
   tiempo,
   profesorEmail,
   onVolver,
+  imagenUrl,
+  mostrarImagen,
 }: Props) {
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
   const [sesionIniciada, setSesionIniciada] = useState(false);
@@ -297,6 +301,19 @@ export default function SalaProfesor({
             <p className="text-sm text-[#1e3a5f] font-medium">{profesorEmail}</p>
           </div>
         </div>
+
+        {/* Imagen del caso clínico (si está activada) */}
+        {mostrarImagen && imagenUrl && (
+          <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100">
+            <p className="text-xs text-slate-500 mb-2">Imagen del caso clínico</p>
+            <img 
+              src={imagenUrl} 
+              alt="Caso clínico" 
+              className="max-h-48 w-full object-contain rounded-lg border border-[#cfeaf6]"
+            />
+            <p className="text-xs text-green-600 mt-1">✅ Visible para los alumnos</p>
+          </div>
+        )}
 
         <div className="bg-white rounded-3xl p-6 text-center shadow-sm border border-slate-100">
           <p className="text-sm text-slate-500">Tiempo restante</p>

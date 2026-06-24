@@ -34,13 +34,14 @@ export default function SubirCaso({
   const [progreso, setProgreso] = useState(0);
 
   const [mostrarScanner, setMostrarScanner] = useState(false);
+  const [mostrarImagen, setMostrarImagen] = useState(false);
+  const [imagenUrl, setImagenUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let interval: any;
 
     if (subiendo) {
       setProgreso(10);
-
       interval = setInterval(() => {
         setProgreso((prev) => {
           if (prev >= 95) return prev;
@@ -54,6 +55,30 @@ export default function SubirCaso({
     return () => clearInterval(interval);
   }, [subiendo]);
 
+  const subirImagenAStorage = async (file: File): Promise<string | null> => {
+    try {
+      const fileName = `${codigoSesion}_${Date.now()}.${file.name.split('.').pop()}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from("imagenes")
+        .upload(fileName, file);
+
+      if (uploadError) {
+        console.error("Error al subir imagen a Storage:", uploadError);
+        return null;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from("imagenes")
+        .getPublicUrl(fileName);
+
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error("Error en subida:", error);
+      return null;
+    }
+  };
+
   const enviarImagen = async () => {
     if (!imagen) return;
 
@@ -61,6 +86,7 @@ export default function SubirCaso({
     setMostrarScanner(true);
     setError("");
 
+    // 1. Llamar al modelo ML
     const formData = new FormData();
     formData.append("file", imagen);
 
@@ -83,10 +109,24 @@ export default function SubirCaso({
       data.porcentaje ||
       0;
 
+    // 2. Si la opción está activada, subir imagen a Storage
+    let urlImagen = null;
+    if (mostrarImagen) {
+      urlImagen = await subirImagenAStorage(imagen);
+      if (!urlImagen) {
+        setError("Error al subir la imagen. Verifica la base de datos");
+        setSubiendo(false);
+        setMostrarScanner(false);
+        return;
+      }
+      setImagenUrl(urlImagen);
+    }
+
+    // 3. Guardar en casos_clinicos
     const { error: dbError } = await supabase.from("casos_clinicos").insert([
       {
         sesion_codigo: codigoSesion,
-        imagen_url: "pendiente",
+        imagen_url: urlImagen || "pendiente",
         diagnostico_ml: diagnosticoReal,
         diagnostico_aprobado: false,
       },
@@ -99,9 +139,26 @@ export default function SubirCaso({
       return;
     }
 
+    // 4. Guardar la URL de la imagen y la preferencia en la sesión
+    if (urlImagen) {
+      await supabase
+        .from("sesiones")
+        .update({
+          imagen_url: urlImagen,
+          mostrar_imagen: true,
+        })
+        .eq("codigo", codigoSesion);
+    } else {
+      await supabase
+        .from("sesiones")
+        .update({
+          mostrar_imagen: false,
+        })
+        .eq("codigo", codigoSesion);
+    }
+
     setDiagnostico(diagnosticoReal);
     setConfianza(confianzaReal);
-
     setAnalizado(true);
     setSubiendo(false);
 
@@ -118,6 +175,8 @@ export default function SubirCaso({
         confianza={confianza}
         profesorEmail={profesorEmail}
         onVolver={onVolver}
+        imagenUrl={imagenUrl}
+        mostrarImagen={mostrarImagen}
       />
     );
   }
@@ -176,11 +235,13 @@ export default function SubirCaso({
             <img
               src={preview}
               className="w-full max-h-48 object-contain rounded-lg mb-3"
+              alt="Preview"
             />
           ) : (
             <img
               src={uploadIcon}
               className="w-14 h-14 mb-3 opacity-70"
+              alt="Upload"
             />
           )}
 
@@ -206,6 +267,25 @@ export default function SubirCaso({
             }}
           />
         </div>
+
+        {/* Checkbox para mostrar imagen en el cuestionario */}
+        {preview && (
+          <div className="mt-4 flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="mostrarImagen"
+              checked={mostrarImagen}
+              onChange={(e) => setMostrarImagen(e.target.checked)}
+              className="w-5 h-5 text-[#9ecbff] focus:ring-[#9ecbff] rounded border-[#cfeaf6]"
+            />
+            <label htmlFor="mostrarImagen" className="text-sm text-slate-600 cursor-pointer">
+              Mostrar imagen en el cuestionario de los alumnos
+              <span className="block text-xs text-slate-400">
+                Activa esta opción para que los alumnos vean la imagen 
+              </span>
+            </label>
+          </div>
+        )}
 
         <button
           onClick={enviarImagen}
@@ -266,23 +346,18 @@ export default function SubirCaso({
       {mostrarScanner && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60">
           <div className="relative flex items-center justify-center">
-
-            {/* DIENTE */}
-           <img
+            <img
               src={dienteLupa}
               className="w-[100px] h-[100px] object-contain z-10"
             />
 
-          {/* SCANNER VERTICAL */}
             <div className="absolute w-[140px] h-[140px] overflow-hidden z-30">
               <div className="relative w-full h-full">
                 <div className="absolute w-full h-[2px] bg-blue-400/80 animate-scan-line z-50" />
               </div>
             </div>
 
-            {/* GLOW */}
             <div className="absolute w-[180px] h-[180px] bg-blue-400/20 blur-xl rounded-full animate-pulse" />
-
           </div>
         </div>
       )}

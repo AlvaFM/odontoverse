@@ -8,6 +8,8 @@ interface Props {
   confianza: number;
   profesorEmail: string;
   onVolver: () => void;
+  imagenUrl?: string | null;
+  mostrarImagen?: boolean;
 }
 
 export default function ConfirmarDiagnostico({
@@ -16,6 +18,8 @@ export default function ConfirmarDiagnostico({
   confianza,
   profesorEmail,
   onVolver,
+  imagenUrl,
+  mostrarImagen,
 }: Props) {
   const [continuar, setContinuar] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -47,6 +51,8 @@ export default function ConfirmarDiagnostico({
         diagnostico={diagnostico}
         profesorEmail={profesorEmail}
         onVolver={onVolver}
+        imagenUrl={imagenUrl}
+        mostrarImagen={mostrarImagen}
       />
     );
   }
@@ -81,6 +87,18 @@ export default function ConfirmarDiagnostico({
             <p className="text-sm text-slate-500">Confianza</p>
             <p className="font-semibold text-[#1e3a5f]">{confianza}%</p>
           </div>
+
+          {mostrarImagen && imagenUrl && (
+            <div className="bg-[#f0f8ff] rounded-xl p-3 text-center">
+              <p className="text-xs text-slate-500">Imagen visible para alumnos</p>
+              <p className="text-xs text-green-600 font-medium mt-1">✅ Activada</p>
+              <img 
+                src={imagenUrl} 
+                alt="Vista previa" 
+                className="max-h-24 mx-auto mt-2 rounded-lg object-contain"
+              />
+            </div>
+          )}
         </div>
 
         <button
